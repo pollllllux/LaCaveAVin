@@ -1,0 +1,127 @@
+"use client"
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Plus, LayoutGrid, Settings2, Loader2, LogOut } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+
+export default function HomePage() {
+  const [cellars, setCellars] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
+
+  // 1. Protection de la route & Récupération des données
+  useEffect(() => {
+    const checkUserAndFetch = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      
+      if (!currentUser) {
+        router.push('/login')
+        return
+      }
+      
+      setUser(currentUser)
+      
+      // Récupération des caves
+      const { data } = await supabase
+        .from('cellars')
+        .select('*, storage_units(*)')
+        .order('created_at', { ascending: true })
+      
+      if (data) setCellars(data)
+      setLoading(false)
+    }
+    checkUserAndFetch()
+  }, [router])
+
+  // 2. Logique de création (Spec 7 & 8)
+  const createCave = async () => {
+    if (cellars.length >= 3) {
+      alert("Limite de 3 caves atteinte (Spec 7)")
+      return
+    }
+
+    const name = prompt("Nom de votre nouvelle cave ?")
+    if (!name) return
+
+    const { data: cave, error } = await supabase
+      .from('cellars')
+      .insert([{ name, user_id: user.id }])
+      .select()
+      .single()
+
+    if (cave) {
+      // Spec 8 : Création automatique d'un casier 6x4
+      await supabase.from('storage_units').insert([{ 
+        cellar_id: cave.id, name: "Casier 1", width: 6, height: 4 
+      }])
+      
+      // Rafraîchir la liste
+      const { data: updatedData } = await supabase
+        .from('cellars')
+        .select('*, storage_units(*)')
+      if (updatedData) setCellars(updatedData)
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center italic text-stone-400">
+        <Loader2 className="animate-spin mr-2" /> Chargement...
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-8">
+      <header className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-serif font-bold text-bordeaux italic">Mes Caves</h1>
+          <p className="text-[10px] text-stone-400 uppercase tracking-widest">Collection Privée</p>
+        </div>
+        <button onClick={handleLogout} className="p-2 text-stone-400 hover:text-bordeaux">
+          <LogOut size={20} />
+        </button>
+      </header>
+
+      <div className="grid gap-4">
+        {cellars.map((cave) => (
+          <div 
+            key={cave.id} 
+            className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 flex justify-between items-center active:scale-95 transition-transform cursor-pointer"
+            onClick={() => router.push(`/cave/${cave.id}`)}
+          >
+            <div>
+              <h2 className="text-xl font-bold text-stone-800">{cave.name}</h2>
+              <p className="text-xs text-stone-400 uppercase tracking-widest">{cave.storage_units?.length || 0} casier(s)</p>
+            </div>
+            <div className="bg-bordeaux/5 p-3 rounded-2xl text-bordeaux">
+              <LayoutGrid size={20} />
+            </div>
+          </div>
+        ))}
+
+        {cellars.length < 3 && (
+          <button 
+            onClick={createCave}
+            className="w-full py-10 border-2 border-dashed border-stone-200 rounded-[2rem] text-stone-400 flex flex-col items-center gap-2 hover:bg-stone-50 transition-colors"
+          >
+            <Plus size={30} />
+            <span className="font-bold text-sm">Ajouter une cave</span>
+          </button>
+        )}
+      </div>
+
+      <footer className="pt-8 text-center">
+        <p className="text-[10px] text-stone-300 uppercase tracking-tighter italic">maCaveAV v0.1.0 — Asus UX31A Edition</p>
+      </footer>
+    </div>
+  )
+}
+

@@ -1,0 +1,475 @@
+"use client"
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { 
+  ArrowLeft, Plus, Wine, Loader2, Trash2, 
+  Layers, X, LayoutGrid, ChevronRight, 
+  LogOut, BookOpen, Star, Calendar 
+} from 'lucide-react'
+import WineForm from '@/components/WineForm'
+import ConsumeModal from '@/components/ConsumeModal'
+
+export default function CellarDetailPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  
+  // -- État des données --
+  const [cellar, setCellar] = useState<any>(null)
+  const [bottles, setBottles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  // -- État de la navigation (Spec 9) --
+  const [viewMode, setViewMode] = useState<'overview' | 'management'>('overview')
+  const [activeUnitIndex, setActiveUnitIndex] = useState(0)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // -- État des Modals --
+  const [selectedPos, setSelectedPos] = useState<{x: number, y: number} | null>(null)
+  const [viewingBottle, setViewingBottle] = useState<any>(null)
+  const [showConsumeModal, setShowConsumeModal] = useState<any>(null)
+  const [showAddUnit, setShowAddUnit] = useState(false)
+  
+  // Formulaire pour nouveau casier (Spec 8)
+  const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
+
+  useEffect(() => {
+    fetchData()
+  }, [id])
+
+  // Recharger les bouteilles quand on entre dans un casier ou qu'on en change
+  useEffect(() => {
+    if (viewMode === 'management' && cellar) {
+      fetchBottles()
+    }
+  }, [activeUnitIndex, viewMode])
+
+  async function fetchData() {
+    setLoading(true)
+    const { data: cellarData, error } = await supabase
+      .from('cellars')
+      .select('*, storage_units(*)')
+      .eq('id', id)
+      .single()
+    
+    if (cellarData) {
+      // Trier les casiers par date de création pour garder un ordre constant
+      cellarData.storage_units.sort((a: any, b: any) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      setCellar(cellarData)
+    }
+    setLoading(false)
+  }
+
+  async function handleAddUnit() {
+    if (!newUnit.name || !cellar?.id) return
+
+    const { error } = await supabase.from('storage_units').insert([{
+      name: newUnit.name,
+      cellar_id: cellar.id,
+      width: newUnit.width,
+      height: newUnit.height
+    }])
+
+    if (error) {
+      console.error('Erreur ajout casier:', error.message)
+      return
+    }
+
+    setShowAddUnit(false)
+    setNewUnit({ name: '', width: 6, height: 4 })
+    await fetchData()
+  }
+
+async function fetchBottles() {
+  // On récupère le casier actif
+  const currentUnit = cellar?.storage_units[activeUnitIndex];
+  if (!currentUnit) return;
+
+  // On récupère les bouteilles pour le casier actif
+  const { data: bottlesData, error: bottlesError } = await supabase
+    .from('bottles')
+    .select('*')
+    .eq('storage_unit_id', currentUnit.id)
+    .eq('status', 'in_stock')
+    .order('pos_y', { ascending: true })
+    .order('pos_x', { ascending: true });
+
+  if (bottlesError) {
+    console.error("Erreur Fetch bouteilles:", bottlesError.message);
+    setBottles([]);
+    return;
+  }
+
+  if (!bottlesData || bottlesData.length === 0) {
+    setBottles([]);
+    return;
+  }
+
+  const wineIds = Array.from(new Set(bottlesData.map((b: any) => b.wine_id).filter(Boolean)));
+  if (wineIds.length === 0) {
+    setBottles(bottlesData);
+    return;
+  }
+
+  const { data: winesData, error: winesError } = await supabase
+    .from('wines')
+    .select('id, name, vintage, color, is_1859_classified, peak_date, region')
+    .in('id', wineIds);
+
+  if (winesError) {
+    console.error("Erreur Fetch vins:", winesError.message);
+    setBottles(bottlesData);
+    return;
+  }
+
+  const winesMap = (winesData || []).reduce((acc: any, wine: any) => {
+    acc[wine.id] = wine;
+    return acc;
+  }, {} as Record<string, any>);
+
+  setBottles((bottlesData || []).map((b: any) => ({
+    ...b,
+    wine: winesMap[b.wine_id] || null,
+  })));
+}
+
+
+  const handleSaveWine = async (wineFields: any) => {
+    //alert('on passe dans saveWine.')
+    if (!selectedPos) {
+      alert('Sélectionne une position vide avant de valider cette bouteille.')
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      alert('Tu dois être connecté pour ajouter une bouteille.')
+      return
+    }
+
+    const currentUnit = cellar?.storage_units?.[activeUnitIndex]
+    if (!currentUnit) {
+      alert('Impossible de trouver le casier actif.')
+      return
+    }
+
+    // 1. Créer la fiche vin (Table WINES - Spec 14/19)
+    const { data: wine, error: wineErr } = await supabase
+      .from('wines')
+      .insert([{ ...wineFields, user_id: user.id }])
+      .select()
+      .single()
+
+    if (wineErr) {
+      console.error('Erreur création vin:', wineErr.message)
+      alert("Erreur lors de la création du vin. Vérifie les champs et réessaie.")
+      return
+    }
+
+    // 2. Créer l'instance physique (Table BOTTLES - Spec 19)
+    const { error: bottleErr } = await supabase.from('bottles').insert([{
+      wine_id: wine.id,
+      storage_unit_id: currentUnit.id,
+      pos_x: selectedPos.x,
+      pos_y: selectedPos.y,
+      status: 'in_stock'
+    }])
+
+    if (bottleErr) {
+      console.error('Erreur création bouteille:', bottleErr.message)
+      alert('Erreur lors de l’ajout de la bouteille. Vérifie la position et réessaie.')
+      return
+    }
+
+    setSelectedPos(null)
+    await fetchBottles()
+  }
+
+  const handleConfirmConsume = async (consumptionData: any) => {
+    const bottleId = showConsumeModal.id
+    
+    // 1. Sortie de cave (Spec 19)
+    const { error: updateError } = await supabase
+      .from('bottles')
+      .update({ status: 'removed' })
+      .eq('id', bottleId)
+
+    if (!updateError) {
+      // 2. Enregistrement historique & avis (Spec 11)
+      await supabase.from('consumption_history').insert([{
+        bottle_id: bottleId,
+        reason: consumptionData.reason,
+        rating: consumptionData.rating,
+        review: consumptionData.review
+      }])
+      
+      setShowConsumeModal(null)
+      setViewingBottle(null)
+      fetchBottles()
+    }
+  }
+
+  if (loading) return (
+    <div className="h-screen flex flex-col items-center justify-center bg-stone-50 text-bordeaux">
+      <Loader2 className="animate-spin mb-4" size={40} />
+      <p className="font-serif italic animate-pulse">Ouverture du domaine...</p>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-stone-50 font-sans text-stone-900 overflow-x-hidden">
+      
+      {/* --- SIDEBAR (Spec 9) --- */}
+      <div className={`fixed inset-y-0 left-0 w-72 bg-stone-900 text-stone-100 z-[300] transform transition-transform duration-500 ease-in-out ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
+        <div className="p-8 space-y-8">
+          <div className="flex justify-between items-center border-b border-stone-800 pb-6">
+            <span className="font-serif italic font-bold text-2xl text-bordeaux">maCaveAV</span>
+            <X onClick={() => setIsSidebarOpen(false)} className="text-stone-500 cursor-pointer active:scale-75 transition-transform" />
+          </div>
+          <nav className="space-y-2">
+            <button onClick={() => {setViewMode('overview'); setIsSidebarOpen(false)}} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest group">
+              <LayoutGrid size={18} className="text-bordeaux group-hover:scale-110 transition-transform" /> Ma Cave
+            </button>
+            <button onClick={() => router.push('/bouteilles')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-stone-400">
+              <BookOpen size={18} /> Mes Bouteilles
+            </button>
+            <div className="pt-8 border-t border-stone-800 mt-4">
+              <button onClick={() => router.push('/')} className="flex items-center gap-4 w-full p-4 text-stone-400 hover:text-white transition-colors text-xs font-bold uppercase">
+                <ArrowLeft size={18} /> Changer de cave
+              </button>
+              <button onClick={() => supabase.auth.signOut()} className="flex items-center gap-4 w-full p-4 text-red-400/70 hover:text-red-400 transition-colors text-xs font-bold uppercase">
+                <LogOut size={18} /> Déconnexion
+              </button>
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      {/* --- CONTENT AREA --- */}
+      <div className="p-6 pb-24 max-w-md mx-auto space-y-6">
+        <header className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 active:scale-90 transition-transform border border-stone-100">
+              <Layers size={20}/>
+            </button>
+            <div>
+              <h1 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{cellar?.name}</h1>
+              <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">
+                {viewMode === 'overview' ? 'Mode Overview' : cellar?.storage_units[activeUnitIndex]?.name}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        {/* --- MODE OVERVIEW (Spec 9) --- */}
+        {viewMode === 'overview' ? (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-center px-2">
+              <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest italic">Rangements ({cellar?.storage_units?.length}/5)</p>
+              {cellar?.storage_units?.length < 5 && (
+                <button 
+                  onClick={() => setShowAddUnit(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-bordeaux text-white rounded-full text-[10px] font-bold uppercase shadow-lg shadow-bordeaux/20 active:scale-95 transition-all"
+                >
+                  <Plus size={14} /> Nouveau
+                </button>
+              )}
+            </div>
+
+            {cellar?.storage_units?.map((unit: any, index: number) => (
+              <div 
+                key={unit.id}
+                onClick={() => {setActiveUnitIndex(index); setViewMode('management')}}
+                className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-5">
+                  <div className="p-4 bg-stone-50 rounded-[1.5rem] text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-all shadow-inner">
+                    <LayoutGrid size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-stone-800 text-lg">{unit.name}</h3>
+                    <p className="text-[10px] text-stone-400 font-bold uppercase tracking-tight">
+                      Grille {unit.width}x{unit.height} • {unit.width * unit.height} places
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="text-stone-200 group-hover:text-bordeaux transform group-hover:translate-x-1 transition-all" />
+              </div>
+            ))}
+
+            {cellar?.storage_units?.length === 0 && (
+              <div className="py-20 text-center border-2 border-dashed border-stone-200 rounded-[3rem] space-y-4">
+                <div className="bg-stone-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-stone-300">
+                  <Plus size={32} />
+                </div>
+                <p className="text-stone-400 text-sm font-serif italic">Aucun casier créé dans cette cave.</p>
+                <button onClick={() => setShowAddUnit(true)} className="text-bordeaux font-bold uppercase text-[10px] tracking-widest border-b border-bordeaux pb-1">Initialiser maintenant</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* --- MODE GESTION (Spec 10) --- */
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="flex items-center justify-between px-2">
+              <button 
+                onClick={() => setViewMode('overview')} 
+                className="text-[10px] font-bold uppercase text-stone-400 flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm hover:text-bordeaux transition-colors"
+              >
+                <ArrowLeft size={12} /> Vue d'ensemble
+              </button>
+              <div className="flex items-center gap-2 text-bordeaux">
+                <div className="w-2 h-2 rounded-full bg-bordeaux animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Live Edit</span>
+              </div>
+            </div>
+
+            {/* Grille Interactive (Spec 10) */}
+            <div className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-stone-100 relative overflow-hidden">
+              <div 
+                className="grid gap-2" 
+                style={{ gridTemplateColumns: `repeat(${cellar.storage_units[activeUnitIndex].width}, minmax(0, 1fr))` }}
+              >
+                {Array.from({ length: cellar.storage_units[activeUnitIndex].width * cellar.storage_units[activeUnitIndex].height }).map((_, i) => {
+                  const x = (i % cellar.storage_units[activeUnitIndex].width) + 1
+                  const y = Math.floor(i / cellar.storage_units[activeUnitIndex].width) + 1
+                  const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
+                  const wine = bottle?.wine || bottle?.wines
+                  const isOccupied = Boolean(bottle)
+                  
+                  return (
+                    <div 
+                      key={i}
+                      onClick={() => bottle ? setViewingBottle(bottle) : setSelectedPos({x, y})}
+                      className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm relative overflow-hidden group
+                        ${wine 
+                          ? (wine.color === 'white' ? 'bg-amber-300 border-amber-400' : wine.color === 'rose' ? 'bg-rose-200 border-rose-300' : 'bg-bordeaux border-bordeaux text-white') 
+                          : isOccupied 
+                          ? 'bg-stone-200 border-stone-300 text-stone-600' 
+                          : 'bg-stone-50 border-stone-100 text-stone-200 hover:border-bordeaux/30 hover:bg-stone-100'}`}
+                    >
+                      {wine ? (
+                        <div className="flex flex-col items-center gap-1 animate-in zoom-in-75">
+                          <Wine size={16} className={wine.color === 'red' ? 'text-white/80' : 'text-stone-800/80'} />
+                          <span className="text-[7px] font-bold">{wine.vintage}</span>
+                        </div>
+                      ) : isOccupied ? (
+                        <div className="text-stone-600 text-[10px] font-bold uppercase tracking-[0.2em]">Occupé</div>
+                      ) : (
+                        <Plus size={12} className="opacity-20 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            
+            <div className="flex justify-center italic text-stone-400 text-[10px] gap-4 uppercase font-bold tracking-tighter">
+               <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-bordeaux" /> Rouge</span>
+               <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-300" /> Blanc</span>
+               <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-200" /> Rosé</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* --- MODAL AJOUT UNITE (Spec 8) --- */}
+      {showAddUnit && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
+            <h2 className="text-xl font-serif font-bold text-stone-800 italic text-center">Nouveau Rangement</h2>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-stone-400 ml-2 uppercase">Nom du casier</label>
+                <input 
+                  autoFocus
+                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-bordeaux/20" 
+                  placeholder="Ex: Casier Nord" 
+                  value={newUnit.name} 
+                  onChange={e => setNewUnit({...newUnit, name: e.target.value})} 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-stone-400 ml-2 uppercase">Colonnes (X)</label>
+                  <input type="number" className="w-full p-4 bg-stone-50 rounded-2xl font-bold text-center" value={newUnit.width} onChange={e => setNewUnit({...newUnit, width: parseInt(e.target.value)})}/>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-stone-400 ml-2 uppercase">Lignes (Y)</label>
+                  <input type="number" className="w-full p-4 bg-stone-50 rounded-2xl font-bold text-center" value={newUnit.height} onChange={e => setNewUnit({...newUnit, height: parseInt(e.target.value)})}/>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowAddUnit(false)} className="flex-1 py-4 text-stone-400 font-bold text-sm uppercase tracking-widest">Annuler</button>
+              <button onClick={handleAddUnit} className="flex-1 py-4 bg-bordeaux text-white rounded-2xl font-bold text-sm uppercase tracking-widest shadow-lg shadow-bordeaux/20 active:scale-95 transition-all">Créer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL DÉTAIL / ACTIONS (Spec 11) --- */}
+      {viewingBottle && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
+            <button onClick={() => setViewingBottle(null)} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
+            
+            <div className="text-center space-y-2 pt-4">
+              <div className={`inline-flex p-5 rounded-full mb-3 shadow-inner ${ (viewingBottle.wine || viewingBottle.wines)?.color === 'red' ? 'bg-bordeaux/5 text-bordeaux' : 'bg-amber-50 text-amber-600'}`}>
+                <Wine size={40} />
+              </div>
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{(viewingBottle.wine || viewingBottle.wines)?.name}</h2>
+              <div className="flex justify-center gap-2">
+                <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 uppercase">{(viewingBottle.wine || viewingBottle.wines)?.vintage}</span>
+                {(viewingBottle.wine || viewingBottle.wines)?.is_1859_classified && (
+                  <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-bold uppercase flex items-center gap-1">
+                    <Star size={10} fill="currentColor" /> Classe 1859
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 border-y border-stone-50 py-6">
+              <div className="text-center border-r border-stone-50">
+                <p className="text-[9px] text-stone-400 uppercase font-bold">Région</p>
+                <p className="text-xs font-bold text-stone-700">{(viewingBottle.wine || viewingBottle.wines)?.region || 'N/A'}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-stone-400 uppercase font-bold">Apogée</p>
+                <p className="text-xs font-bold text-bordeaux">{(viewingBottle.wine || viewingBottle.wines)?.peak_date || 'N/A'}</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowConsumeModal(viewingBottle)} 
+              className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
+            >
+              <Trash2 size={18} /> Sortir la bouteille
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODALS CONDITIONNELS --- */}
+      {showConsumeModal && (
+        <ConsumeModal 
+          wineName={(showConsumeModal.wine || showConsumeModal.wines)?.name} 
+          onConfirm={handleConfirmConsume} 
+          onCancel={() => setShowConsumeModal(null)} 
+        />
+      )}
+      
+      {selectedPos && (
+        <WineForm 
+          x={selectedPos.x} 
+          y={selectedPos.y} 
+          onSave={handleSaveWine} 
+          onCancel={() => setSelectedPos(null)} 
+        />
+      )}
+    </div>
+  )
+}
+

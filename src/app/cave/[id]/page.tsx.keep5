@@ -1,0 +1,226 @@
+"use client"
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { ArrowLeft, Plus, Wine, Loader2, Trash2, Calendar, Star, Info, Layers, X } from 'lucide-react'
+import WineForm from '@/components/WineForm'
+
+export default function CellarDetailPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  
+  const [cellar, setCellar] = useState<any>(null)
+  const [wines, setWines] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPos, setSelectedPos] = useState<{x: number, y: number} | null>(null)
+  const [viewingWine, setViewingWine] = useState<any>(null)
+  
+  // Spec 7: Gestion des casiers
+  const [activeUnitIndex, setActiveUnitIndex] = useState(0)
+  const [showAddUnit, setShowAddUnit] = useState(false)
+  const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
+
+  useEffect(() => {
+    fetchData()
+  }, [id])
+
+  async function fetchData() {
+    const { data: cellarData } = await supabase
+      .from('cellars')
+      .select('*, storage_units(*)')
+      .eq('id', id)
+      .single()
+    
+    if (cellarData) {
+      setCellar(cellarData)
+      const units = cellarData.storage_units?.sort((a: any, b: any) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      
+      const unitId = units?.[activeUnitIndex]?.id
+      if (unitId) {
+        const { data: wineData } = await supabase
+          .from('wines')
+          .select('*')
+          .eq('storage_unit_id', unitId)
+        setWines(wineData || [])
+      } else {
+        setWines([])
+      }
+    }
+    setLoading(false)
+  }
+
+  // Recharger les vins si on change de casier
+  useEffect(() => {
+    if (cellar) fetchData()
+  }, [activeUnitIndex])
+
+  const handleAddUnit = async () => {
+    if (!newUnit.name) return
+    const { error } = await supabase.from('storage_units').insert([{
+      name: newUnit.name,
+      width: newUnit.width,
+      height: newUnit.height,
+      cellar_id: id
+    }])
+
+    if (!error) {
+      setShowAddUnit(false)
+      setNewUnit({ name: '', width: 6, height: 4 })
+      fetchData()
+    }
+  }
+
+  const handleSaveWine = async (form: any) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const currentUnit = cellar.storage_units[activeUnitIndex]
+
+    const { error } = await supabase.from('wines').insert([{
+      ...form,
+      user_id: user?.id,
+      storage_unit_id: currentUnit.id,
+      position_x: selectedPos?.x,
+      position_y: selectedPos?.y
+    }])
+
+    if (!error) { setSelectedPos(null); fetchData(); }
+  }
+
+  const deleteWine = async (wineId: string) => {
+    if (!confirm("Bouteille bue ?")) return
+    const { error } = await supabase.from('wines').delete().eq('id', wineId)
+    if (!error) { setViewingWine(null); fetchData(); }
+  }
+
+  const getWineStyles = (color: string) => {
+    switch(color) {
+      case 'white': return 'bg-amber-300 border-amber-400 text-stone-900 shadow-amber-900/10'
+      case 'rose': return 'bg-rose-300 border-rose-400 text-stone-900 shadow-rose-900/10'
+      default: return 'bg-bordeaux border-bordeaux text-white shadow-bordeaux/20'
+    }
+  }
+
+  if (loading) return <div className="h-screen flex items-center justify-center bg-stone-50 text-bordeaux italic"><Loader2 className="animate-spin mr-2"/></div>
+
+  const unit = cellar?.storage_units?.[activeUnitIndex]
+  const cols = unit?.width || 6
+  const rows = unit?.height || 4
+
+  return (
+    <div className="min-h-screen bg-stone-50 p-6 pb-24">
+      <div className="max-w-md mx-auto space-y-6">
+        
+        <header className="flex items-center gap-4">
+          <button onClick={() => router.push('/')} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 active:scale-95 transition-transform"><ArrowLeft size={20}/></button>
+          <div>
+            <h1 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{cellar?.name}</h1>
+            <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">{wines.length} bouteilles ici</p>
+          </div>
+        </header>
+
+        {/* Spec 7: Sélecteur de Casiers + Bouton Ajout (CORRIGÉ ICI) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 -mb-1 no-scrollbar">
+          {cellar?.storage_units?.map((u: any, index: number) => (
+            <button
+              key={u.id}
+              onClick={() => setActiveUnitIndex(index)}
+              // AJOUT DE shrink-0 POUR NE PAS QUE LE BOUTON S'ÉCRASE
+              className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all shrink-0 border whitespace-nowrap
+                ${activeUnitIndex === index 
+                  ? 'bg-bordeaux text-white border-bordeaux shadow-md' 
+                  : 'bg-white text-stone-400 border-stone-100 hover:border-bordeaux/20'}`}
+            >
+              {u.name}
+            </button>
+          ))}
+          {/* LE VOILÀ ! AJOUT DE shrink-0 ET whitespace-nowrap */}
+          <button 
+            onClick={() => setShowAddUnit(true)}
+            className="p-3 bg-stone-200 text-stone-600 rounded-full hover:bg-stone-300 transition-colors shrink-0 whitespace-nowrap flex items-center justify-center"
+            title="Ajouter un nouveau casier"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+
+        {/* Grille */}
+        <div className="bg-white p-4 rounded-[2.5rem] shadow-xl shadow-stone-200/50 border border-stone-100 animate-in fade-in">
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {Array.from({ length: rows * cols }).map((_, i) => {
+              const x = (i % cols) + 1
+              const y = Math.floor(i / cols) + 1
+              const wine = wines.find(w => w.position_x === x && w.position_y === y)
+              return (
+                <div 
+                  key={i}
+                  onClick={() => wine ? setViewingWine(wine) : setSelectedPos({x, y})}
+                  className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm
+                    ${wine ? getWineStyles(wine.color) : 'bg-stone-50 border-stone-100 text-stone-200 hover:border-bordeaux/20'}`}
+                >
+                  {wine ? <div className="flex flex-col items-center gap-1"><Wine size={16}/><span className="text-[7px] font-bold">{wine.vintage}</span></div> : <Plus size={14}/>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="bg-stone-200/30 p-4 rounded-2xl flex gap-3 items-center border border-stone-200">
+          <Layers className="text-stone-400" size={16} />
+          <p className="text-[10px] text-stone-500 font-medium italic">Configuration : {unit?.name} ({cols}x{rows})</p>
+        </div>
+      </div>
+
+      {/* MODAL : AJOUT DE CASIER (Spec 7 & 9) */}
+      {showAddUnit && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-5 shadow-2xl animate-in zoom-in-95">
+            <h2 className="text-xl font-serif font-bold text-stone-800 italic">Ajouter un casier</h2>
+            <div className="space-y-4">
+              <input 
+                className="w-full p-4 bg-stone-50 rounded-2xl outline-none focus:ring-2 focus:ring-bordeaux/20"
+                placeholder="Nom (ex: Casier du bas)"
+                value={newUnit.name}
+                onChange={e => setNewUnit({...newUnit, name: e.target.value})}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <input type="number" className="p-4 bg-stone-50 rounded-2xl" placeholder="Col (X)" value={newUnit.width} onChange={e => setNewUnit({...newUnit, width: parseInt(e.target.value)})}/>
+                <input type="number" className="p-4 bg-stone-50 rounded-2xl" placeholder="Lignes (Y)" value={newUnit.height} onChange={e => setNewUnit({...newUnit, height: parseInt(e.target.value)})}/>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowAddUnit(false)} className="flex-1 py-4 text-stone-400 font-bold">Annuler</button>
+              <button onClick={handleAddUnit} className="flex-1 py-4 bg-bordeaux text-white rounded-2xl font-bold active:scale-95">Créer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals Détail et Formulaire Vin */}
+      {viewingWine && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
+            <button onClick={() => setViewingWine(null)} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
+            <div className="text-center space-y-2">
+              <div className={`inline-flex p-4 rounded-full mb-2 ${getWineStyles(viewingWine.color)}`}><Wine size={32} /></div>
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">{viewingWine.name}</h2>
+              <div className="flex justify-center gap-2">
+                <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500">{viewingWine.vintage}</span>
+                {viewingWine.is_1859 && <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold flex items-center gap-1"><Star size={10} fill="currentColor"/> 1859</span>}
+              </div>
+            </div>
+            <div className="bg-stone-50 rounded-2xl p-4 flex items-center justify-between border border-stone-100">
+              <div className="flex items-center gap-3 text-stone-600"><Calendar size={18} className="text-bordeaux"/><span className="text-sm font-medium italic">Apogée</span></div>
+              <span className="text-lg font-bold text-bordeaux">{viewingWine.peak_date || 'N/A'}</span>
+            </div>
+            <button onClick={() => deleteWine(viewingWine.id)} className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 transition-all active:scale-95"><Trash2 size={18} /> Retirer</button>
+          </div>
+        </div>
+      )}
+
+      {selectedPos && <WineForm x={selectedPos.x} y={selectedPos.y} onCancel={() => setSelectedPos(null)} onSave={handleSaveWine} />}
+    </div>
+  )
+}
+

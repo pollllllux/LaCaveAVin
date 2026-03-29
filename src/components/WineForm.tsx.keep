@@ -1,0 +1,101 @@
+"use client"
+import { useState } from 'react'
+import { X, Save } from 'lucide-react'
+
+export default function WineForm({ x, y, onSave, onCancel }: any) {
+  const [form, setForm] = useState({
+    name: '',
+    vintage: 2024,
+    color: 'red',
+    style: 'still',
+    is_1859: false,
+    peak_date: 2030,
+    grapes: ''
+  })
+
+  return (
+    <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4">
+        
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-serif font-bold text-bordeaux italic">Nouveau Flacon</h2>
+            <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">Position : {x} , {y}</p>
+          </div>
+          <button onClick={onCancel} className="p-2 bg-stone-100 rounded-full text-stone-400 hover:text-bordeaux transition-colors">
+            <X size={20}/>
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Nom du Vin */}
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nom du Domaine</label>
+            <input 
+              autoFocus
+              className="w-full p-4 bg-stone-50 rounded-2xl border-none focus:ring-2 focus:ring-bordeaux/20 outline-none"
+              placeholder="Ex: Château Margaux..."
+              onChange={e => setForm({...form, name: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Millésime */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Millésime</label>
+              <input 
+                type="number"
+                className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
+                value={form.vintage}
+                onChange={e => setForm({...form, vintage: parseInt(e.target.value)})}
+              />
+            </div>
+            {/* Couleur */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Couleur</label>
+              <select 
+                className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none appearance-none font-medium"
+                value={form.color}
+                onChange={e => setForm({...form, color: e.target.value})}
+              >
+                <option value="red">🍷 Rouge</option>
+                <option value="white">🥂 Blanc</option>
+                <option value="rose">🌸 Rosé</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Spec 13: Classement 1859 */}
+          <div className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-100">
+            <label className="text-sm font-bold text-stone-700">Classement 1859 ?</label>
+            <input 
+              type="checkbox" 
+              className="w-6 h-6 accent-bordeaux rounded-lg"
+              onChange={e => setForm({...form, is_1859: e.target.checked})}
+            />
+          </div>
+
+          {/* Spec 14: Année d'apogée */}
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Année d'apogée</label>
+            <input 
+              type="number"
+              className="w-full p-4 bg-bordeaux/5 text-bordeaux font-bold rounded-2xl border-none outline-none text-center text-lg"
+              value={form.peak_date}
+              onChange={e => setForm({...form, peak_date: parseInt(e.target.value)})}
+            />
+          </div>
+        </div>
+
+        <button 
+          onClick={() => onSave(form)}
+          className="w-full py-5 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+        >
+          <Save size={20} />
+          Placer en {x},{y}
+        </button>
+      </div>
+    </div>
+  )
+}
+

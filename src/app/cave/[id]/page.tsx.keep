@@ -1,0 +1,128 @@
+"use client"
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { ArrowLeft, Plus, Wine, Loader2, Trash2, Calendar, Star } from 'lucide-react'
+import WineForm from '@/components/WineForm'
+
+export default function CellarDetailPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  const [cellar, setCellar] = useState<any>(null)
+  const [wines, setWines] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPos, setSelectedPos] = useState<{x: number, y: number} | null>(null)
+  const [viewingWine, setViewingWine] = useState<any>(null) // Pour afficher le détail
+
+  useEffect(() => {
+    fetchData()
+  }, [id])
+
+  async function fetchData() {
+    const { data: cellarData } = await supabase.from('cellars').select('*, storage_units(*)').eq('id', id).single()
+    if (cellarData) {
+      setCellar(cellarData)
+      const unitId = cellarData.storage_units?.[0]?.id
+      if (unitId) {
+        const { data: wineData } = await supabase.from('wines').select('*').eq('storage_unit_id', unitId)
+        setWines(wineData || [])
+      }
+    }
+    setLoading(false)
+  }
+
+  const handleSaveWine = async (form: any) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('wines').insert([{
+      ...form,
+      user_id: user?.id,
+      storage_unit_id: cellar.storage_units[0].id,
+      position_x: selectedPos?.x,
+      position_y: selectedPos?.y
+    }])
+    if (!error) { setSelectedPos(null); fetchData(); }
+  }
+
+  const deleteWine = async (wineId: string) => {
+    if (!confirm("Confirmer que cette bouteille a été bue ?")) return
+    const { error } = await supabase.from('wines').delete().eq('id', wineId)
+    if (!error) { setViewingWine(null); fetchData(); }
+  }
+
+  if (loading) return <div className="h-screen flex items-center justify-center text-bordeaux italic"><Loader2 className="animate-spin mr-2"/> Inventaire en cours...</div>
+
+  const unit = cellar?.storage_units?.[0]
+  const rows = unit?.height || 4
+  const cols = unit?.width || 6
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-6 pb-24">
+      <header className="flex items-center gap-4">
+        <button onClick={() => router.push('/')} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 active:scale-90 transition-transform">
+          <ArrowLeft size={20} />
+        </button>
+        <h1 className="text-2xl font-serif font-bold text-stone-800 italic">{cellar?.name}</h1>
+      </header>
+
+      {/* Grille */}
+      <div className="bg-white p-4 rounded-[2.5rem] shadow-xl shadow-stone-200/50 border border-stone-100">
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {Array.from({ length: rows * cols }).map((_, i) => {
+            const x = (i % cols) + 1
+            const y = Math.floor(i / cols) + 1
+            const wine = wines.find(w => w.position_x === x && w.position_y === y)
+            
+            return (
+              <div 
+                key={i}
+                onClick={() => wine ? setViewingWine(wine) : setSelectedPos({x, y})}
+                className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer shadow-sm border
+                  ${wine ? 'bg-bordeaux border-bordeaux text-white' : 'bg-stone-50 border-stone-100 text-stone-200 hover:border-bordeaux/20'}`}
+              >
+                {wine ? <div className="flex flex-col items-center gap-1"><Wine size={16}/><span className="text-[7px] font-bold">{wine.vintage}</span></div> : <Plus size={14}/>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* MODAL : FICHE DÉTAIL (Spec 14 & 15) */}
+      {viewingWine && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button onClick={() => setViewingWine(null)} className="absolute top-6 right-6 text-stone-300"><Plus className="rotate-45" /></button>
+            
+            <div className="text-center space-y-2">
+              <div className="inline-flex p-4 bg-bordeaux/5 text-bordeaux rounded-full mb-2"><Wine size={32} /></div>
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">{viewingWine.name}</h2>
+              <div className="flex justify-center gap-2">
+                <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold uppercase tracking-widest text-stone-500">{viewingWine.vintage}</span>
+                {viewingWine.is_1859 && <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold flex items-center gap-1"><Star size={10} fill="currentColor"/> 1859</span>}
+              </div>
+            </div>
+
+            <div className="bg-stone-50 rounded-2xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-stone-600">
+                <Calendar size={18} className="text-bordeaux" />
+                <span className="text-sm font-medium italic">Apogée conseillée</span>
+              </div>
+              <span className="text-lg font-bold text-bordeaux">{viewingWine.peak_date || 'N/A'}</span>
+            </div>
+
+            <button 
+              onClick={() => deleteWine(viewingWine.id)}
+              className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all"
+            >
+              <Trash2 size={18} />
+              Bouteille bue (Retirer)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedPos && <WineForm x={selectedPos.x} y={selectedPos.y} onCancel={() => setSelectedPos(null)} onSave={handleSaveWine} />}
+    </div>
+  )
+}
+

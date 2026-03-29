@@ -1,0 +1,255 @@
+"use client"
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { ArrowLeft, Plus, Wine, Loader2, Trash2, Calendar, Star, Info, Layers, X } from 'lucide-react'
+import WineForm from '@/components/WineForm'
+import ConsumeModal from '@/components/ConsumeModal' // Assure-toi d'avoir créé ce fichier
+
+export default function CellarDetailPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  
+  // États de données
+  const [cellar, setCellar] = useState<any>(null)
+  const [bottles, setBottles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  // États d'interface
+  const [activeUnitIndex, setActiveUnitIndex] = useState(0)
+  const [selectedPos, setSelectedPos] = useState<{x: number, y: number} | null>(null)
+  const [viewingBottle, setViewingBottle] = useState<any>(null)
+  const [showConsumeModal, setShowConsumeModal] = useState<any>(null)
+  const [showAddUnit, setShowAddUnit] = useState(false)
+  const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
+
+  useEffect(() => {
+    fetchData()
+  }, [id])
+
+  // Recharger les bouteilles si on change de casier
+  useEffect(() => {
+    if (cellar) fetchBottles()
+  }, [activeUnitIndex])
+
+  async function fetchData() {
+    setLoading(true)
+    const { data: cellarData } = await supabase
+      .from('cellars')
+      .select('*, storage_units(*)')
+      .eq('id', id)
+      .single()
+    
+    if (cellarData) {
+      setCellar(cellarData)
+      await fetchBottles(cellarData.storage_units)
+    }
+    setLoading(false)
+  }
+
+  async function fetchBottles(unitsArr?: any[]) {
+    const units = unitsArr || cellar?.storage_units
+    const currentUnit = units?.sort((a: any, b: any) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )[activeUnitIndex]
+
+    if (currentUnit) {
+      // Jointure entre bouteilles et vins (Spec 19)
+      const { data } = await supabase
+        .from('bottles')
+        .select(`
+          *,
+          wines (*)
+        `)
+        .eq('storage_unit_id', currentUnit.id)
+        .eq('status', 'in_stock')
+      
+      setBottles(data || [])
+    }
+  }
+
+  const handleAddUnit = async () => {
+    if (!newUnit.name) return
+    const { error } = await supabase.from('storage_units').insert([{
+      name: newUnit.name,
+      width: newUnit.width,
+      height: newUnit.height,
+      cellar_id: id
+    }])
+    if (!error) {
+      setShowAddUnit(false); setNewUnit({ name: '', width: 6, height: 4 });
+      fetchData();
+    }
+  }
+
+  // Logique de sortie de bouteille (Spec 11)
+  const handleConfirmConsume = async (consumptionData: any) => {
+    const bottleId = showConsumeModal.id
+    
+    // 1. Marquer la bouteille comme 'removed' (Spec 19)
+    const { error: updateError } = await supabase
+      .from('bottles')
+      .update({ status: 'removed' })
+      .eq('id', bottleId)
+
+    if (!updateError) {
+      // 2. Créer l'entrée dans l'historique (Spec 11)
+      await supabase.from('consumption_history').insert([{
+        bottle_id: bottleId,
+        reason: consumptionData.reason,
+        rating: consumptionData.rating,
+        review: consumptionData.review
+      }])
+      
+      setShowConsumeModal(null)
+      setViewingBottle(null)
+      fetchBottles()
+    }
+  }
+
+  const getWineStyles = (color: string) => {
+    switch(color) {
+      case 'white': return 'bg-amber-300 border-amber-400 text-stone-900 shadow-amber-900/10'
+      case 'rose': return 'bg-rose-300 border-rose-400 text-stone-900 shadow-rose-900/10'
+      default: return 'bg-bordeaux border-bordeaux text-white shadow-bordeaux/20'
+    }
+  }
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-stone-50 text-bordeaux italic">
+      <Loader2 className="animate-spin mr-2"/>
+    </div>
+  )
+
+  const units = cellar?.storage_units?.sort((a: any, b: any) => 
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+  const currentUnit = units?.[activeUnitIndex]
+  const cols = currentUnit?.width || 6
+  const rows = currentUnit?.height || 4
+
+  return (
+    <div className="min-h-screen bg-stone-50 p-6 pb-24 font-sans text-stone-900">
+      <div className="max-w-md mx-auto space-y-6">
+        
+        <header className="flex items-center gap-4">
+          <button onClick={() => router.push('/')} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 active:scale-95 transition-transform">
+            <ArrowLeft size={20}/>
+          </button>
+          <div>
+            <h1 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{cellar?.name}</h1>
+            <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest">{bottles.length} bouteilles en stock</p>
+          </div>
+        </header>
+
+        {/* Sélecteur de Casiers */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 -mb-1 no-scrollbar">
+          {units?.map((u: any, index: number) => (
+            <button
+              key={u.id}
+              onClick={() => setActiveUnitIndex(index)}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all shrink-0 border whitespace-nowrap
+                ${activeUnitIndex === index 
+                  ? 'bg-bordeaux text-white border-bordeaux shadow-md' 
+                  : 'bg-white text-stone-400 border-stone-100 hover:border-bordeaux/20'}`}
+            >
+              {u.name}
+            </button>
+          ))}
+          <button onClick={() => setShowAddUnit(true)} className="p-3 bg-stone-200 text-stone-600 rounded-full shrink-0 flex items-center justify-center">
+            <Plus size={18} />
+          </button>
+        </div>
+
+        {/* Grille Interactive (Spec 10) */}
+        <div className="bg-white p-4 rounded-[2.5rem] shadow-xl shadow-stone-200/50 border border-stone-100">
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {Array.from({ length: rows * cols }).map((_, i) => {
+              const x = (i % cols) + 1
+              const y = Math.floor(i / cols) + 1
+              const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
+              const wine = bottle?.wines
+              
+              return (
+                <div 
+                  key={i}
+                  onClick={() => bottle ? setViewingBottle(bottle) : setSelectedPos({x, y})}
+                  className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm
+                    ${wine ? getWineStyles(wine.color) : 'bg-stone-50 border-stone-100 text-stone-200 hover:border-bordeaux/20'}`}
+                >
+                  {wine ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <Wine size={16}/>
+                      <span className="text-[7px] font-bold">{wine.vintage}</span>
+                    </div>
+                  ) : <Plus size={14}/>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="bg-stone-200/30 p-4 rounded-2xl flex gap-3 items-center border border-stone-200">
+          <Layers className="text-stone-400" size={16} />
+          <p className="text-[10px] text-stone-500 font-medium italic uppercase tracking-wider">
+            {currentUnit?.name} — {cols} x {rows}
+          </p>
+        </div>
+      </div>
+
+      {/* MODAL : DÉTAIL DU VIN & ACTION DE SORTIE (Spec 11) */}
+      {viewingBottle && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
+            <button onClick={() => setViewingBottle(null)} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
+            <div className="text-center space-y-2">
+              <div className={`inline-flex p-4 rounded-full mb-2 ${getWineStyles(viewingBottle.wines.color)} shadow-lg shadow-black/5`}><Wine size={32} /></div>
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{viewingBottle.wines.name}</h2>
+              <div className="flex justify-center gap-2 text-[10px] font-bold uppercase text-stone-500">
+                <span className="px-3 py-1 bg-stone-100 rounded-full">{viewingBottle.wines.vintage}</span>
+                {viewingBottle.wines.is_1859_classified && <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full border border-amber-200">1859</span>}
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setShowConsumeModal(viewingBottle)}
+              className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95"
+            >
+              <Trash2 size={18} /> Retirer du stock
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONSUME (Spec 11) */}
+      {showConsumeModal && (
+        <ConsumeModal 
+          wineName={showConsumeModal.wines.name}
+          onConfirm={handleConfirmConsume}
+          onCancel={() => setShowConsumeModal(null)}
+        />
+      )}
+
+      {/* AUTRES MODALS (AJOUT UNITE / FORMULAIRE VIN) */}
+      {showAddUnit && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-5 shadow-2xl">
+             <h2 className="text-xl font-serif font-bold text-stone-800 italic text-center">Nouveau Casier</h2>
+             {/* ... Reste du formulaire d'ajout d'unité ... */}
+             <button onClick={() => setShowAddUnit(false)}>Fermer</button>
+          </div>
+        </div>
+      )}
+
+      {selectedPos && (
+        <div className="fixed inset-0 z-[150] bg-white overflow-y-auto">
+          {/* On appellera ici le WineForm mis à jour pour la Spec 14/19 */}
+          <button onClick={() => setSelectedPos(null)} className="p-4"><X /> Fermer le formulaire</button>
+          <p className="p-8 text-center italic">Formulaire Vin en cours de mise à jour (Bloc C)...</p>
+        </div>
+      )}
+    </div>
+  )
+}
+

@@ -1,0 +1,51 @@
+// Dans src/app/page.tsx
+
+const [newCellar, setNewCellar] = useState({ name: '', width: 6, height: 4 })
+
+const handleCreateCellar = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  // 1. Créer la cave
+  const { data: cellar, error: cError } = await supabase
+    .from('cellars')
+    .insert([{ name: newCellar.name, user_id: user.id }])
+    .select()
+    .single()
+
+  if (cellar) {
+    // 2. Créer le casier avec les dimensions choisies (Spec 9)
+    const { error: sError } = await supabase
+      .from('storage_units')
+      .insert([{
+        name: 'Casier Principal',
+        cellar_id: cellar.id,
+        width: newCellar.width,
+        height: newCellar.height
+      }])
+    
+    if (!sError) {
+      setNewCellar({ name: '', width: 6, height: 4 })
+      fetchCellars() // Rafraîchir la liste
+    }
+  }
+}
+
+// Dans ton JSX (le formulaire), ajoute ces inputs :
+<div className="grid grid-cols-2 gap-4">
+  <input 
+    type="number" 
+    placeholder="Colonnes" 
+    className="p-4 bg-stone-50 rounded-2xl"
+    value={newCellar.width}
+    onChange={e => setNewCellar({...newCellar, width: parseInt(e.target.value)})}
+  />
+  <input 
+    type="number" 
+    placeholder="Rangées" 
+    className="p-4 bg-stone-50 rounded-2xl"
+    value={newCellar.height}
+    onChange={e => setNewCellar({...newCellar, height: parseInt(e.target.value)})}
+  />
+</div>
+
