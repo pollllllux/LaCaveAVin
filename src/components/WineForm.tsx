@@ -1,8 +1,373 @@
 "use client"
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, Save, Wine as WineIcon, Star, Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
+
+// ============================================================
+// DONNÉES GÉOGRAPHIQUES
+// ============================================================
+
+const TOP_WINE_COUNTRIES = [
+  'France', 'Italie', 'Espagne', 'États-Unis', 'Argentine',
+  'Australie', 'Chili', 'Allemagne', 'Portugal', 'Afrique du Sud',
+  'Nouvelle-Zélande', 'Autriche', 'Grèce', 'Hongrie', 'Roumanie',
+]
+
+const OTHER_COUNTRIES = [
+  'Albanie', 'Algérie', 'Andorre', 'Angola', 'Arménie',
+  'Azerbaïdjan', 'Belgique', 'Bolivie', 'Bosnie-Herzégovine', 'Brésil',
+  'Bulgarie', 'Canada', 'Chine', 'Chypre', 'Colombie',
+  'Croatie', 'Équateur', 'Géorgie', 'Inde', 'Israël',
+  'Japon', 'Jordanie', 'Kazakhstan', 'Kosovo', 'Liban',
+  'Luxembourg', 'Macédoine du Nord', 'Malte', 'Maroc', 'Mexique',
+  'Moldavie', 'Monténégro', 'Namibie', 'Pays-Bas', 'Pérou',
+  'République tchèque', 'Russie', 'Serbie', 'Slovaquie', 'Slovénie',
+  'Suisse', 'Syrie', 'Tadjikistan', 'Tunisie', 'Turquie',
+  'Ukraine', 'Uruguay', 'Ouzbékistan', 'Zimbabwe',
+]
+
+const ALL_COUNTRIES = [...TOP_WINE_COUNTRIES, ...OTHER_COUNTRIES]
+
+const REGIONS_BY_COUNTRY: Record<string, string[]> = {
+  'France': [
+    'Bordeaux', 'Bourgogne', 'Champagne', 'Alsace', 'Rhône',
+    'Loire', 'Languedoc-Roussillon', 'Provence', 'Beaujolais',
+    'Jura', 'Savoie', 'Sud-Ouest', 'Corse',
+  ],
+  'Italie': [
+    'Toscane', 'Piémont', 'Vénétie', 'Sicile', 'Campanie',
+    'Pouilles', 'Frioul-Vénétie Julienne', 'Lombardie', 'Marches',
+    'Sardaigne', 'Ombrie', 'Émilie-Romagne', 'Calabre', 'Ligurie',
+  ],
+  'Espagne': [
+    'Rioja', 'Ribera del Duero', 'Priorat', 'Penedès', 'Galice',
+    'Jerez', 'Castille-La Manche', 'Navarre', 'Valence',
+    'Aragon', 'Andalousie', 'Catalogne',
+  ],
+  'États-Unis': [
+    'Napa Valley', 'Sonoma', 'Oregon', 'Washington State',
+    'Finger Lakes', 'Willamette Valley', 'Santa Barbara', 'Paso Robles',
+    'Central Coast', 'Sierra Foothills',
+  ],
+  'Argentine': [
+    'Mendoza', 'Salta', 'San Juan', 'Patagonie', 'Río Negro',
+    'Luján de Cuyo', 'Valle de Uco', 'La Rioja',
+  ],
+  'Australie': [
+    'Barossa Valley', 'Coonawarra', 'Margaret River', 'Clare Valley',
+    'Yarra Valley', 'McLaren Vale', 'Hunter Valley', 'Eden Valley',
+    'Mornington Peninsula', 'Rutherglen',
+  ],
+  'Chili': [
+    'Maipo', 'Colchagua', 'Casablanca', 'Elqui', 'Bío-Bío',
+    'Aconcagua', 'Rapel', 'Curicó', 'Limarí', 'San Antonio',
+  ],
+  'Allemagne': [
+    'Mosel', 'Rheingau', 'Rheinhessen', 'Pfalz', 'Baden',
+    'Franken', 'Nahe', 'Württemberg', 'Mittelrhein', 'Ahr',
+  ],
+  'Portugal': [
+    'Douro', 'Vinho Verde', 'Alentejo', 'Dão', 'Lisboa',
+    'Setúbal', 'Algarve', 'Ribatejo', 'Bairrada', 'Madère',
+  ],
+  'Afrique du Sud': [
+    'Stellenbosch', 'Paarl', 'Swartland', 'Constantia',
+    'Franschhoek', 'Robertson', 'Walker Bay', 'Elgin',
+  ],
+  'Nouvelle-Zélande': [
+    'Marlborough', 'Central Otago', "Hawke's Bay",
+    'Martinborough', 'Gisborne', 'Nelson', 'Canterbury',
+  ],
+  'Autriche': [
+    'Wachau', 'Kremstal', 'Kamptal', 'Burgenland',
+    'Styrie', 'Vienne', 'Carnuntum', 'Weinviertel',
+  ],
+  'Grèce': [
+    'Santorin', 'Naoussa', 'Némée', 'Céphalonie',
+    'Crète', 'Macédoine', 'Péloponnèse', 'Égée',
+  ],
+  'Hongrie': [
+    'Tokaj', 'Eger', 'Villány', 'Badacsony', 'Sopron', 'Szekszárd',
+  ],
+  'Roumanie': [
+    'Dealu Mare', 'Cotnari', 'Murfatlar', 'Tîrnave', 'Dobrogea',
+  ],
+  'Géorgie': [
+    'Kakhétie', 'Kartlie', 'Iméréthie', 'Racha-Letchkhoumi',
+  ],
+  'Liban': [
+    'Bekaa', 'Batroun', 'Jezzine',
+  ],
+  'Israël': [
+    'Galilée', 'Shomron', 'Judée', 'Néguev',
+  ],
+  'Maroc': [
+    'Meknès', 'Benslimane', 'Berkane', 'Boulaouane',
+  ],
+  'Tunisie': [
+    'Bizerte', 'Mornag', 'Grombalia', 'Cap Bon',
+  ],
+  'Suisse': [
+    'Valais', 'Vaud', 'Genève', 'Neuchâtel', 'Tessin',
+  ],
+  'Bulgarie': [
+    'Thrace', 'Danube', 'Rose Valley', 'Stara Planina',
+  ],
+  'Croatie': [
+    'Istrie', 'Dalmatie', 'Slavonie', 'Zagreb',
+  ],
+}
+
+const APPELLATIONS_BY_REGION: Record<string, string[]> = {
+  // France – Bordeaux
+  'Bordeaux': [
+    'Pauillac', 'Saint-Estèphe', 'Saint-Julien', 'Margaux',
+    'Pessac-Léognan', 'Pomerol', 'Saint-Émilion', 'Sauternes',
+    'Entre-Deux-Mers', 'Médoc', 'Haut-Médoc', 'Fronsac',
+    'Canon-Fronsac', 'Côtes de Bourg', 'Blaye', 'Graves',
+    'Barsac', 'Listrac-Médoc', 'Moulis-en-Médoc',
+    'Lalande-de-Pomerol', 'Bordeaux Supérieur', 'Bordeaux',
+  ],
+  // France – Bourgogne
+  'Bourgogne': [
+    'Chablis', 'Chambolle-Musigny', 'Gevrey-Chambertin', 'Pommard',
+    'Meursault', 'Puligny-Montrachet', 'Chassagne-Montrachet',
+    'Nuits-Saint-Georges', 'Vosne-Romanée', 'Beaune', 'Volnay',
+    'Santenay', 'Aloxe-Corton', 'Savigny-lès-Beaune',
+    'Auxey-Duresses', 'Morey-Saint-Denis', 'Vougeot', 'Marsannay',
+    'Saint-Aubin', 'Mercurey', 'Givry', 'Montagny', 'Rully',
+    'Bourgogne Aligoté', 'Bourgogne Passetoutgrains',
+  ],
+  // France – Champagne
+  'Champagne': [
+    'Champagne', 'Côteaux Champenois', 'Rosé des Riceys',
+  ],
+  // France – Alsace
+  'Alsace': [
+    'Alsace', 'Alsace Grand Cru', "Crémant d'Alsace",
+  ],
+  // France – Rhône
+  'Rhône': [
+    'Châteauneuf-du-Pape', 'Hermitage', 'Crozes-Hermitage',
+    'Côte-Rôtie', 'Saint-Joseph', 'Condrieu', 'Gigondas',
+    'Vacqueyras', 'Cornas', 'Tavel', 'Lirac', 'Rasteau',
+    'Cairanne', 'Ventoux', 'Luberon', 'Côtes du Rhône',
+    'Côtes du Rhône Villages', 'Muscat de Beaumes-de-Venise',
+    'Saint-Péray',
+  ],
+  // France – Loire
+  'Loire': [
+    'Muscadet', 'Sancerre', 'Pouilly-Fumé', 'Vouvray',
+    'Bourgueil', 'Chinon', 'Anjou', 'Savennières',
+    'Quarts-de-Chaume', 'Bonnezeaux', 'Touraine', 'Montlouis',
+    'Saint-Nicolas-de-Bourgueil', 'Coteaux du Layon',
+    'Crémant de Loire', 'Muscadet Sèvre-et-Maine',
+    'Pouilly-sur-Loire', 'Reuilly', 'Quincy', 'Menetou-Salon',
+  ],
+  // France – Languedoc-Roussillon
+  'Languedoc-Roussillon': [
+    'Languedoc', 'Minervois', 'Corbières', 'Fitou',
+    'Saint-Chinian', 'Faugères', 'Pic Saint-Loup',
+    'Costières de Nîmes', 'Banyuls', 'Maury', 'Rivesaltes',
+    'Côtes du Roussillon', 'Collioure', 'Limoux',
+    'Terrasses du Larzac', 'Pézenas',
+  ],
+  // France – Provence
+  'Provence': [
+    'Bandol', 'Côtes de Provence', 'Cassis', 'Palette',
+    'Les Baux-de-Provence', "Coteaux d'Aix-en-Provence",
+    'Coteaux Varois en Provence', 'Bellet', 'Pierrevert',
+  ],
+  // France – Beaujolais
+  'Beaujolais': [
+    'Moulin-à-Vent', 'Morgon', 'Fleurie', 'Brouilly',
+    'Juliénas', 'Chiroubles', 'Côte de Brouilly', 'Chénas',
+    'Saint-Amour', 'Régnié', 'Beaujolais Villages', 'Beaujolais',
+  ],
+  // France – Sud-Ouest
+  'Sud-Ouest': [
+    'Cahors', 'Madiran', 'Bergerac', 'Monbazillac', 'Jurançon',
+    'Irouléguy', 'Fronton', 'Gaillac', 'Côtes de Duras',
+    'Pécharmant', 'Montravel', 'Buzet', 'Côtes du Marmandais',
+  ],
+  // France – Jura
+  'Jura': [
+    'Arbois', 'Château-Chalon', "L'Étoile", 'Crémant du Jura',
+    'Côtes du Jura', 'Macvin du Jura',
+  ],
+  // France – Savoie
+  'Savoie': [
+    'Vin de Savoie', 'Roussette de Savoie', 'Crépy', 'Seyssel',
+  ],
+  // France – Corse
+  'Corse': [
+    'Patrimonio', 'Ajaccio', 'Muscat du Cap Corse', 'Vin de Corse',
+  ],
+  // Italie – Toscane
+  'Toscane': [
+    'Chianti', 'Chianti Classico', 'Brunello di Montalcino',
+    'Vino Nobile di Montepulciano', 'Bolgheri', 'Morellino di Scansano',
+    'Vernaccia di San Gimignano', 'Rosso di Montalcino',
+    'Rosso di Montepulciano', 'Maremma Toscana', 'Orcia',
+  ],
+  // Italie – Piémont
+  'Piémont': [
+    'Barolo', 'Barbaresco', "Barbera d'Asti", "Barbera d'Alba",
+    "Dolcetto d'Alba", "Moscato d'Asti", 'Gavi', 'Asti',
+    'Langhe', 'Monferrato', 'Roero', "Brachetto d'Acqui",
+  ],
+  // Italie – Vénétie
+  'Vénétie': [
+    'Amarone della Valpolicella', 'Valpolicella', 'Soave',
+    'Prosecco', 'Bardolino', 'Recioto della Valpolicella',
+    'Lugana', 'Ripasso',
+  ],
+  // Italie – Sicile
+  'Sicile': [
+    "Nero d'Avola", 'Marsala', 'Moscato di Pantelleria',
+    'Etna', 'Cerasuolo di Vittoria',
+  ],
+  // Italie – Campanie
+  'Campanie': [
+    'Taurasi', 'Greco di Tufo', 'Fiano di Avellino', 'Vesuvio',
+  ],
+  // Espagne – Rioja
+  'Rioja': [
+    'Rioja DOCa', 'Rioja Alavesa', 'Rioja Alta', 'Rioja Oriental',
+  ],
+  // Espagne – Ribera del Duero
+  'Ribera del Duero': ['Ribera del Duero DO'],
+  // Espagne – Priorat
+  'Priorat': ['Priorat DOQ', 'Montsant DO'],
+  // Espagne – Jerez
+  'Jerez': [
+    'Fino', 'Manzanilla', 'Amontillado', 'Oloroso',
+    'Pedro Ximénez', 'Palo Cortado', 'Cream Sherry',
+  ],
+  // Espagne – Galice
+  'Galice': ['Rías Baixas', 'Ribeiro', 'Valdeorras', 'Monterrei'],
+  // Espagne – Penedès
+  'Penedès': ['Penedès DO', 'Cava DO'],
+  // États-Unis – Napa Valley
+  'Napa Valley': [
+    'Napa Valley AVA', 'Rutherford', 'Oakville', 'Stags Leap District',
+    'Mount Veeder', 'Howell Mountain', 'Spring Mountain District',
+    'Diamond Mountain District', 'Yountville', 'St. Helena',
+  ],
+  // États-Unis – Sonoma
+  'Sonoma': [
+    'Russian River Valley', 'Sonoma Coast', 'Alexander Valley',
+    'Dry Creek Valley', 'Carneros', 'Chalk Hill',
+  ],
+  // États-Unis – Oregon
+  'Oregon': [
+    'Willamette Valley', 'Rogue Valley', 'Umpqua Valley',
+  ],
+  // Argentine – Mendoza
+  'Mendoza': [
+    'Luján de Cuyo', 'Valle de Uco', 'Maipú', 'Tupungato',
+  ],
+  // Portugal – Douro
+  'Douro': [
+    'Porto', 'Douro DOC', 'Porto Vintage', 'Porto LBV',
+  ],
+  // Portugal – Vinho Verde
+  'Vinho Verde': [
+    'Vinho Verde DOC', 'Alvarinho', 'Loureiro', 'Azal',
+  ],
+  // Portugal – Alentejo
+  'Alentejo': [
+    'Alentejo DOC', 'Vidigueira', 'Borba', 'Redondo', 'Reguengos',
+  ],
+  // Australie – Barossa Valley
+  'Barossa Valley': ['Barossa Valley GI', 'Eden Valley GI'],
+  // Australie – Margaret River
+  'Margaret River': ['Margaret River GI'],
+  // Allemagne – Mosel
+  'Mosel': [
+    'Bernkasteler Doctor', 'Piesporter Goldtröpfchen',
+    'Wehlener Sonnenuhr', 'Scharzhofberg', 'Trittenheimer Apotheke',
+  ],
+  // Allemagne – Rheingau
+  'Rheingau': [
+    'Rüdesheimer Berg Schlossberg', 'Johannisberger Vogelsang',
+    'Hattenheimer Nussbrunnen',
+  ],
+  // Hongrie – Tokaj
+  'Tokaj': [
+    'Tokaji Aszú', 'Tokaji Furmint', 'Tokaji Szamorodni',
+  ],
+  // Autriche – Wachau
+  'Wachau': [
+    'Wachau DAC', 'Grüner Veltliner', 'Riesling Wachau',
+  ],
+  // Grèce – Santorin
+  'Santorin': ['Santorin AOC', 'Assyrtiko de Santorin'],
+  // Grèce – Naoussa
+  'Naoussa': ['Naoussa AOC', 'Xinomavro'],
+}
+
+// ============================================================
+// COMPOSANT COMBOBOX
+// ============================================================
+
+function Combobox({
+  label, value, onChange, suggestions, placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  suggestions: string[]
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Filtre : si la valeur est vide, on affiche toutes les suggestions telles quelles
+  // Sinon on filtre par correspondance
+  const filtered = value
+    ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
+    : suggestions
+
+  return (
+    <div className="space-y-1 relative" ref={ref}>
+      <label className="text-[10px] font-bold text-stone-400 uppercase ml-1">{label}</label>
+      <input
+        className="w-full bg-transparent border-b border-stone-200 py-2 outline-none text-sm focus:border-bordeaux/50 transition-colors"
+        value={value}
+        placeholder={placeholder}
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-[600] left-0 right-0 bg-white border border-stone-100 rounded-2xl shadow-2xl max-h-44 overflow-y-auto mt-1 top-full">
+          {filtered.slice(0, 20).map(s => (
+            <li
+              key={s}
+              onMouseDown={e => { e.preventDefault(); onChange(s); setOpen(false) }}
+              className="px-4 py-2.5 text-sm cursor-pointer hover:bg-stone-50 active:bg-stone-100 first:rounded-t-2xl last:rounded-b-2xl"
+            >
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
 
 export default function WineForm({ x, y, onSave, onCancel }: any) {
   const [form, setForm] = useState({
@@ -29,15 +394,47 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
+  // ---- Suggestions dynamiques ----
+  const countrySuggestions = form.country
+    ? ALL_COUNTRIES.filter(c => c.toLowerCase().includes(form.country.toLowerCase()))
+    : TOP_WINE_COUNTRIES
+
+  const regionList = REGIONS_BY_COUNTRY[form.country] || []
+  const regionSuggestions = form.region
+    ? regionList.filter(r => r.toLowerCase().includes(form.region.toLowerCase()))
+    : regionList
+
+  const appellationList = APPELLATIONS_BY_REGION[form.region] || []
+  const appellationSuggestions = form.appellation
+    ? appellationList.filter(a => a.toLowerCase().includes(form.appellation.toLowerCase()))
+    : appellationList
+
+  // ---- Handlers avec reset des champs dépendants ----
+  const handleCountryChange = (v: string) => {
+    // On ne réinitialise région/appellation que si le nouveau pays est reconnu
+    // (= sélectionné depuis la liste), pas à chaque frappe libre
+    const isKnownCountry = REGIONS_BY_COUNTRY[v] !== undefined
+    setForm(f => ({
+      ...f,
+      country: v,
+      ...(isKnownCountry && v !== f.country ? { region: '', appellation: '' } : {}),
+    }))
+  }
+
+  const handleRegionChange = (v: string) => {
+    const isKnownRegion = APPELLATIONS_BY_REGION[v] !== undefined
+    setForm(f => ({
+      ...f,
+      region: v,
+      ...(isKnownRegion && v !== f.region ? { appellation: '' } : {}),
+    }))
+  }
+
   const handlePhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Prévisualisation immédiate
     const preview = URL.createObjectURL(file)
     setPhotoPreview(preview)
-
-    // Compression (Spec 16 : <200Ko)
     try {
       const compressed = await imageCompression(file, {
         maxSizeMB: 0.18,
@@ -134,7 +531,6 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {/* Bouton Caméra */}
                 <button
                   type="button"
                   onClick={() => cameraInputRef.current?.click()}
@@ -143,8 +539,6 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
                   <Camera size={24} className="text-bordeaux" />
                   <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Appareil photo</span>
                 </button>
-
-                {/* Bouton Galerie */}
                 <button
                   type="button"
                   onClick={() => galleryInputRef.current?.click()}
@@ -156,22 +550,8 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
               </div>
             )}
 
-            {/* Inputs fichier cachés */}
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handlePhotoSelected}
-            />
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoSelected}
-            />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelected} />
+            <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelected} />
           </div>
 
           {/* Section 1 : Identité */}
@@ -214,20 +594,28 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
 
           {/* Section 2 : Terroir */}
           <div className="p-5 bg-stone-50 rounded-[2rem] space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-400 uppercase ml-1">Pays</label>
-                <input className="w-full bg-transparent border-b border-stone-200 py-2 outline-none text-sm" value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-400 uppercase ml-1">Région</label>
-                <input className="w-full bg-transparent border-b border-stone-200 py-2 outline-none text-sm" placeholder="Bordeaux..." value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-stone-400 uppercase ml-1">Appellation</label>
-              <input className="w-full bg-transparent border-b border-stone-200 py-2 outline-none text-sm" placeholder="Pauillac..." value={form.appellation} onChange={e => setForm({ ...form, appellation: e.target.value })} />
-            </div>
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Terroir</p>
+            <Combobox
+              label="Pays"
+              value={form.country}
+              onChange={handleCountryChange}
+              suggestions={countrySuggestions}
+              placeholder="France..."
+            />
+            <Combobox
+              label="Région"
+              value={form.region}
+              onChange={handleRegionChange}
+              suggestions={regionSuggestions}
+              placeholder={regionList.length ? `${regionList[0]}...` : 'Bordeaux...'}
+            />
+            <Combobox
+              label="Appellation"
+              value={form.appellation}
+              onChange={v => setForm(f => ({ ...f, appellation: v }))}
+              suggestions={appellationSuggestions}
+              placeholder={appellationList.length ? `${appellationList[0]}...` : 'Pauillac...'}
+            />
           </div>
 
           {/* Section 3 : Caractéristiques */}
