@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Plus, Wine, LayoutGrid, Trash2, Loader2, Settings2 } from 'lucide-react'
+import { Plus, Wine, LayoutGrid, Trash2, Loader2, Settings2, LogOut } from 'lucide-react'
 
 export default function HomePage() {
   const [cellars, setCellars] = useState<any[]>([])
@@ -119,13 +119,22 @@ export default function HomePage() {
             <h1 className="text-4xl font-serif font-bold text-stone-800 italic">Mes Caves</h1>
             <p className="text-stone-400 text-xs uppercase font-bold tracking-widest mt-1">Gestion de Stock</p>
           </div>
-          <button 
-            onClick={() => !maxCellarsReached && setShowModal(true)}
-            disabled={maxCellarsReached}
-            className={`p-4 rounded-2xl shadow-lg shadow-bordeaux/20 active:scale-90 transition-transform ${maxCellarsReached ? 'bg-stone-300 text-stone-500 cursor-not-allowed' : 'bg-bordeaux text-white'}`}
-          >
-            <Plus size={24} />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
+              className="p-4 rounded-2xl bg-stone-100 text-stone-400 hover:text-red-400 hover:bg-red-50 active:scale-90 transition-all"
+              title="Se déconnecter"
+            >
+              <LogOut size={20} />
+            </button>
+            <button
+              onClick={() => !maxCellarsReached && setShowModal(true)}
+              disabled={maxCellarsReached}
+              className={`p-4 rounded-2xl shadow-lg shadow-bordeaux/20 active:scale-90 transition-transform ${maxCellarsReached ? 'bg-stone-300 text-stone-500 cursor-not-allowed' : 'bg-bordeaux text-white'}`}
+            >
+              <Plus size={24} />
+            </button>
+          </div>
         </header>
         {maxCellarsReached && (
           <p className="text-xs text-red-500 uppercase tracking-[0.2em] font-bold mt-2">Limite de 3 caves atteinte. Supprimez une cave pour en ajouter une autre.</p>
