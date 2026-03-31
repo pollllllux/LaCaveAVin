@@ -21,7 +21,8 @@ export default function HomePage() {
   }, [])
 
   async function checkAuth() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user ?? null
     setUser(user)
     setAuthChecked(true)
     if (!user) {

@@ -14,8 +14,8 @@ export default function LoginPage() {
   // Vérifier si l'utilisateur est déjà connecté
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data?.user) router.push('/')
+      const { data } = await supabase.auth.getSession()
+      if (data?.session?.user) router.push('/')
     }
     checkUser()
   }, [router])
@@ -35,7 +35,7 @@ export default function LoginPage() {
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) alert(error.message)
-      else router.push('/')
+      else window.location.href = '/'
     }
     setLoading(false)
   }

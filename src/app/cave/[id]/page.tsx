@@ -30,6 +30,7 @@ export default function CellarDetailPage() {
   const [viewingBottle, setViewingBottle] = useState<any>(null)
   const [showConsumeModal, setShowConsumeModal] = useState<any>(null)
   const [showAddUnit, setShowAddUnit] = useState(false)
+  const [showFullPhoto, setShowFullPhoto] = useState(false)
   
   // Formulaire pour nouveau casier (Spec 8)
   const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
@@ -116,7 +117,7 @@ async function fetchBottles() {
 
   const { data: winesData, error: winesError } = await supabase
     .from('wines')
-    .select('id, name, vintage, color, is_1859_classified, peak_date, region')
+    .select('id, name, vintage, color, is_1859_classified, peak_date, region, appellation, image_url')
     .in('id', wineIds);
 
   if (winesError) {
@@ -411,44 +412,79 @@ async function fetchBottles() {
       )}
 
       {/* --- MODAL DÉTAIL / ACTIONS (Spec 11) --- */}
-      {viewingBottle && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
-            <button onClick={() => setViewingBottle(null)} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
-            
-            <div className="text-center space-y-2 pt-4">
-              <div className={`inline-flex p-5 rounded-full mb-3 shadow-inner ${ (viewingBottle.wine || viewingBottle.wines)?.color === 'red' ? 'bg-bordeaux/5 text-bordeaux' : 'bg-amber-50 text-amber-600'}`}>
-                <Wine size={40} />
-              </div>
-              <h2 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{(viewingBottle.wine || viewingBottle.wines)?.name}</h2>
-              <div className="flex justify-center gap-2">
-                <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 uppercase">{(viewingBottle.wine || viewingBottle.wines)?.vintage}</span>
-                {(viewingBottle.wine || viewingBottle.wines)?.is_1859_classified && (
-                  <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-bold uppercase flex items-center gap-1">
-                    <Star size={10} fill="currentColor" /> Classe 1859
-                  </span>
-                )}
-              </div>
-            </div>
+      {viewingBottle && (() => {
+        const wine = viewingBottle.wine || viewingBottle.wines
+        return (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
+              <button onClick={() => { setViewingBottle(null); setShowFullPhoto(false) }} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
 
-            <div className="grid grid-cols-2 gap-4 border-y border-stone-50 py-6">
-              <div className="text-center border-r border-stone-50">
-                <p className="text-[9px] text-stone-400 uppercase font-bold">Région</p>
-                <p className="text-xs font-bold text-stone-700">{(viewingBottle.wine || viewingBottle.wines)?.region || 'N/A'}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[9px] text-stone-400 uppercase font-bold">Apogée</p>
-                <p className="text-xs font-bold text-bordeaux">{(viewingBottle.wine || viewingBottle.wines)?.peak_date || 'N/A'}</p>
-              </div>
-            </div>
+              {/* Photo étiquette */}
+              {wine?.image_url ? (
+                <div className="rounded-[1.5rem] overflow-hidden cursor-pointer" onClick={() => setShowFullPhoto(true)}>
+                  <img
+                    src={wine.image_url}
+                    alt="Étiquette"
+                    className="w-full h-36 object-contain bg-stone-50 hover:scale-105 transition-transform duration-300"
+                  />
+                  <p className="text-center text-[9px] text-stone-400 uppercase font-bold mt-1 pb-1">Appuyer pour agrandir</p>
+                </div>
+              ) : (
+                <div className={`inline-flex p-5 rounded-full shadow-inner mx-auto block text-center ${wine?.color === 'red' ? 'bg-bordeaux/5 text-bordeaux' : 'bg-amber-50 text-amber-600'}`}>
+                  <Wine size={40} />
+                </div>
+              )}
 
-            <button 
-              onClick={() => setShowConsumeModal(viewingBottle)} 
-              className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
-            >
-              <Trash2 size={18} /> Sortir la bouteille
-            </button>
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{wine?.name}</h2>
+                <div className="flex justify-center gap-2">
+                  <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 uppercase">{wine?.vintage}</span>
+                  {wine?.is_1859_classified && (
+                    <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-bold uppercase flex items-center gap-1">
+                      <Star size={10} fill="currentColor" /> Classé 1859
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 border-y border-stone-50 py-6">
+                <div className="text-center border-r border-stone-50">
+                  <p className="text-[9px] text-stone-400 uppercase font-bold">Région</p>
+                  <p className="text-xs font-bold text-stone-700">{wine?.region || 'N/A'}</p>
+                </div>
+                <div className="text-center border-r border-stone-50">
+                  <p className="text-[9px] text-stone-400 uppercase font-bold">Appellation</p>
+                  <p className="text-xs font-bold text-stone-700">{wine?.appellation || 'N/A'}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] text-stone-400 uppercase font-bold">Apogée</p>
+                  <p className="text-xs font-bold text-bordeaux">{wine?.peak_date || 'N/A'}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowConsumeModal(viewingBottle)}
+                className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
+              >
+                <Trash2 size={18} /> Sortir la bouteille
+              </button>
+            </div>
           </div>
+        )
+      })()}
+
+      {/* --- PHOTO PLEIN ÉCRAN --- */}
+      {showFullPhoto && (viewingBottle?.wine || viewingBottle?.wines)?.image_url && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setShowFullPhoto(false)}
+        >
+          <button className="absolute top-6 right-6 text-white/60 p-2"><X size={28} /></button>
+          <img
+            src={(viewingBottle.wine || viewingBottle.wines).image_url}
+            alt="Étiquette plein écran"
+            className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
+          />
         </div>
       )}
 

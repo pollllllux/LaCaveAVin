@@ -54,3 +54,13 @@ CREATE TABLE consumption_history (
     review TEXT,
     consumed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Bucket Supabase Storage pour les photos d'étiquettes (Spec 13/16)
+-- À créer dans le dashboard Supabase : Storage > New bucket > "wine-labels" (public)
+-- Puis ajouter cette policy RLS pour le bucket :
+--
+-- Policy INSERT (upload) :
+--   bucket_id = 'wine-labels' AND auth.uid()::text = (storage.foldername(name))[1]
+--
+-- Policy SELECT (lecture publique) :
+--   bucket_id = 'wine-labels'
