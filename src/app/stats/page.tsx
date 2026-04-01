@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { BarChart3, ArrowLeft, Loader2, Wine, Globe, MapPin } from 'lucide-react'
+import { BarChart3, ArrowLeft, Loader2, Wine, Globe, MapPin, Euro } from 'lucide-react'
 
 function groupAndSort(wines: any[], key: string): { label: string; count: number }[] {
   const map: Record<string, number> = {}
@@ -47,6 +47,11 @@ export default function StatsPage() {
 
   const byCountry = groupAndSort(wines, 'country')
   const byRegion = groupAndSort(wines, 'region')
+
+  const totalValue = wines.reduce((sum, w) => sum + (w.price || 0), 0)
+  const mostExpensive = wines.filter(w => w.price > 0).sort((a, b) => b.price - a.price)[0] ?? null
+
+  const formatPrice = (n: number) => n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
 
   if (loading) return <div className="h-screen flex items-center justify-center text-bordeaux italic"><Loader2 className="animate-spin mr-2"/> Calcul des indicateurs...</div>
 
@@ -124,6 +129,46 @@ export default function StatsPage() {
           total={total}
           emptyMsg="Aucune région renseignée"
         />
+
+        {/* Valeur totale de la cave */}
+        {totalValue > 0 && (
+          <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center gap-6">
+            <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
+              <Euro size={28} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Valeur de la cave</p>
+              <p className="text-2xl font-serif font-bold text-stone-800 mt-1">{formatPrice(totalValue)}</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">basée sur les prix d'achat</p>
+            </div>
+          </div>
+        )}
+
+        {/* Bouteille la plus chère */}
+        {mostExpensive && (
+          <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-stone-700">
+              <span className="text-amber-500"><Wine size={18} /></span>
+              <h3 className="text-sm font-bold uppercase tracking-widest">Bouteille la plus chère</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              {mostExpensive.image_url ? (
+                <img src={mostExpensive.image_url} alt={mostExpensive.name} className="w-14 h-14 object-cover rounded-2xl shrink-0" />
+              ) : (
+                <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center shrink-0">
+                  <Wine size={24} className="text-stone-300" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="font-bold text-stone-800 truncate">{mostExpensive.name || 'Sans nom'}</p>
+                <p className="text-xs text-stone-400 truncate">
+                  {[mostExpensive.appellation || mostExpensive.region, mostExpensive.vintage].filter(Boolean).join(' · ')}
+                </p>
+                <p className="text-lg font-serif font-bold text-emerald-600 mt-1">{formatPrice(mostExpensive.price)}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

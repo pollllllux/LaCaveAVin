@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Save, Wine as WineIcon, Star, Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
+import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR } from '@/lib/wine-service'
 
 // ============================================================
 // DONNÉES GÉOGRAPHIQUES
@@ -383,13 +384,15 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
     producer_url: '',
     grapes: '',
     peak_date: new Date().getFullYear() + 10,
-    image_url: ''
+    image_url: '',
+    price: 0,
   })
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [ocrLoading, setOcrLoading] = useState(false)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -435,15 +438,34 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
     if (!file) return
     const preview = URL.createObjectURL(file)
     setPhotoPreview(preview)
+    setOcrLoading(true)
     try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 0.18,
-        maxWidthOrHeight: 1200,
-        useWebWorker: true
-      })
-      setPhotoFile(compressed)
+      const { text, compressedFile } = await processBottleImage(file)
+      setPhotoFile(compressedFile)
+      const domain = !form.name ? extractDomainFromOCR(text) : null
+      const geo = extractAppellationFromOCR(text, REGIONS_BY_COUNTRY, APPELLATIONS_BY_REGION)
+      const vintage = extractVintageFromOCR(text)
+      setForm(f => ({
+        ...f,
+        ...(domain ? { name: domain } : {}),
+        ...(geo?.country && !f.country ? { country: geo.country } : {}),
+        ...(geo?.region && !f.region ? { region: geo.region } : {}),
+        ...(geo?.appellation && !f.appellation ? { appellation: geo.appellation } : {}),
+        ...(vintage && f.vintage === new Date().getFullYear() ? { vintage } : {}),
+      }))
     } catch {
-      setPhotoFile(file)
+      try {
+        const compressed = await imageCompression(file, {
+          maxSizeMB: 0.18,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true
+        })
+        setPhotoFile(compressed)
+      } catch {
+        setPhotoFile(file)
+      }
+    } finally {
+      setOcrLoading(false)
     }
   }
 
@@ -522,6 +544,12 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
                   alt="Étiquette"
                   className="w-full h-40 object-cover"
                 />
+                {ocrLoading && (
+                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2">
+                    <Loader2 size={24} className="text-white animate-spin" />
+                    <span className="text-white text-xs font-semibold">Analyse de l'étiquette...</span>
+                  </div>
+                )}
                 <button
                   onClick={handleRemovePhoto}
                   className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-full text-red-400 shadow"
@@ -557,13 +585,16 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
           {/* Section 1 : Identité */}
           <div className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Domaine / Cuvée</label>
+              <label className="text-[10px] font-bold text-stone-400 uppercase ml-3 flex items-center gap-2">
+                Domaine / Cuvée
+                {ocrLoading && <Loader2 size={10} className="animate-spin text-bordeaux" />}
+              </label>
               <input
                 autoFocus
                 className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-bordeaux/10 focus:bg-white outline-none transition-all"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="Ex: Château Lynch-Bages"
+                placeholder={ocrLoading ? "Analyse en cours..." : "Ex: Château Lynch-Bages"}
               />
             </div>
 
@@ -657,6 +688,19 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
               className="w-full p-4 bg-stone-50 rounded-2xl outline-none font-bold text-bordeaux"
               value={form.peak_date}
               onChange={e => setForm({ ...form, peak_date: parseInt(e.target.value) })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Prix d'achat (€)</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              className="w-full p-4 bg-stone-50 rounded-2xl outline-none font-bold text-stone-700"
+              value={form.price || ''}
+              placeholder="0.00"
+              onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
             />
           </div>
         </div>
