@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { 
-  ArrowLeft, Plus, Wine, Loader2, Trash2, 
-  Layers, X, LayoutGrid, ChevronRight, 
-  LogOut, BookOpen, Star, Calendar 
+import {
+  ArrowLeft, Plus, Wine, Loader2, Trash2,
+  Layers, X, LayoutGrid, ChevronRight,
+  LogOut, BookOpen, Star, Calendar, Pencil
 } from 'lucide-react'
 import WineForm from '@/components/WineForm'
 import ConsumeModal from '@/components/ConsumeModal'
@@ -28,6 +28,7 @@ export default function CellarDetailPage() {
   // -- État des Modals --
   const [selectedPos, setSelectedPos] = useState<{x: number, y: number} | null>(null)
   const [viewingBottle, setViewingBottle] = useState<any>(null)
+  const [editingBottle, setEditingBottle] = useState<any>(null)
   const [showConsumeModal, setShowConsumeModal] = useState<any>(null)
   const [showAddUnit, setShowAddUnit] = useState(false)
   const [showFullPhoto, setShowFullPhoto] = useState(false)
@@ -117,7 +118,7 @@ async function fetchBottles() {
 
   const { data: winesData, error: winesError } = await supabase
     .from('wines')
-    .select('id, name, vintage, color, is_1859_classified, peak_date, region, appellation, image_url')
+    .select('*')
     .in('id', wineIds);
 
   if (winesError) {
@@ -186,6 +187,22 @@ async function fetchBottles() {
     }
 
     setSelectedPos(null)
+    await fetchBottles()
+  }
+
+  const handleUpdateWine = async (wineFields: any) => {
+    const wine = editingBottle?.wine || editingBottle?.wines
+    if (!wine?.id) return
+    const { error } = await supabase
+      .from('wines')
+      .update(wineFields)
+      .eq('id', wine.id)
+    if (error) {
+      console.error('Erreur mise à jour vin:', error.message)
+      return
+    }
+    setEditingBottle(null)
+    setViewingBottle(null)
     await fetchBottles()
   }
 
@@ -462,12 +479,20 @@ async function fetchBottles() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowConsumeModal(viewingBottle)}
-                className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
-              >
-                <Trash2 size={18} /> Sortir la bouteille
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEditingBottle(viewingBottle)}
+                  className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
+                >
+                  <Pencil size={16} /> Modifier
+                </button>
+                <button
+                  onClick={() => setShowConsumeModal(viewingBottle)}
+                  className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
+                >
+                  <Trash2 size={16} /> Sortir
+                </button>
+              </div>
             </div>
           </div>
         )
@@ -498,11 +523,19 @@ async function fetchBottles() {
       )}
       
       {selectedPos && (
-        <WineForm 
-          x={selectedPos.x} 
-          y={selectedPos.y} 
-          onSave={handleSaveWine} 
-          onCancel={() => setSelectedPos(null)} 
+        <WineForm
+          x={selectedPos.x}
+          y={selectedPos.y}
+          onSave={handleSaveWine}
+          onCancel={() => setSelectedPos(null)}
+        />
+      )}
+
+      {editingBottle && (
+        <WineForm
+          initialData={editingBottle.wine || editingBottle.wines}
+          onSave={handleUpdateWine}
+          onCancel={() => setEditingBottle(null)}
         />
       )}
     </div>

@@ -370,25 +370,25 @@ function Combobox({
 // COMPOSANT PRINCIPAL
 // ============================================================
 
-export default function WineForm({ x, y, onSave, onCancel }: any) {
+export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
   const [form, setForm] = useState({
-    name: '',
-    vintage: new Date().getFullYear(),
-    color: 'red',
-    country: 'France',
-    region: '',
-    appellation: '',
-    is_1859_classified: false,
-    style: 'still',
-    sweetness: 'dry',
-    producer_url: '',
-    grapes: '',
-    peak_date: new Date().getFullYear() + 10,
-    image_url: '',
-    price: 0,
+    name: initialData?.name ?? '',
+    vintage: initialData?.vintage ?? new Date().getFullYear(),
+    color: initialData?.color ?? 'red',
+    country: initialData?.country ?? 'France',
+    region: initialData?.region ?? '',
+    appellation: initialData?.appellation ?? '',
+    is_1859_classified: initialData?.is_1859_classified ?? false,
+    style: initialData?.style ?? 'still',
+    sweetness: initialData?.sweetness ?? 'dry',
+    producer_url: initialData?.producer_url ?? '',
+    grapes: initialData?.grapes ?? '',
+    peak_date: initialData?.peak_date ?? new Date().getFullYear() + 10,
+    image_url: initialData?.image_url ?? '',
+    price: initialData?.price ?? 0,
   })
 
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.image_url ?? null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -479,7 +479,7 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
 
   const handleSave = async () => {
     setSaving(true)
-    let image_url = ''
+    let image_url = form.image_url
 
     if (photoFile) {
       setUploadingPhoto(true)
@@ -527,7 +527,7 @@ export default function WineForm({ x, y, onSave, onCancel }: any) {
           <div className="inline-flex p-3 bg-bordeaux/5 text-bordeaux rounded-full mb-2">
             <WineIcon size={24} />
           </div>
-          <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Nouveau Flacon</h2>
+          <h2 className="text-2xl font-serif font-bold text-stone-800 italic">{initialData ? 'Modifier le Flacon' : 'Nouveau Flacon'}</h2>
           <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Position : {x} , {y}</p>
         </header>
 
