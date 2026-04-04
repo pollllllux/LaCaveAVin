@@ -8,6 +8,7 @@ import { Wine, Search, ArrowLeft, Loader2, ChevronRight, X } from 'lucide-react'
 import { capitalize } from '@/lib/format'
 import { useDisplayDensity } from '@/hooks/useDisplayDensity'
 import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
+import { MaturityIconStyled } from '@/components/MaturityIcon'
 
 interface WineWithContext {
   wine: any
@@ -15,23 +16,24 @@ interface WineWithContext {
   storageUnit: { id: string; name: string }
 }
 
-type MaturityType = 'ready' | 'within5' | 'after5' | 'past' | 'unknown'
+type MaturityType = 'ready' | 'after5' | 'past' | 'unknown'
 
 function getMaturity(peakDate: number | null): MaturityType {
   if (!peakDate) return 'unknown'
   const year = new Date().getFullYear()
-  if (peakDate < year - 2) return 'past'
-  if (peakDate <= year + 2) return 'ready'
-  if (peakDate <= year + 7) return 'within5'
+  // À boire: ±3 ans autour de la date de maturité
+  if (peakDate >= year - 3 && peakDate <= year + 3) return 'ready'
+  // Passé depuis plus de 3 ans
+  if (peakDate < year - 3) return 'past'
+  // Sera prêt dans plus de 3 ans
   return 'after5'
 }
 
-const MATURITY_LABELS: Record<MaturityType, { label: string; icon: string; color: string }> = {
-  ready: { label: 'Prêt à boire', icon: '🟢', color: 'bg-green-50 text-green-700 border-green-200' },
-  within5: { label: 'Dans les 5 ans', icon: '🟡', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  after5: { label: 'Après 5 ans', icon: '🔵', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  past: { label: 'Passé l\'apogée', icon: '⚪', color: 'bg-stone-50 text-stone-600 border-stone-200' },
-  unknown: { label: 'Inconnu', icon: '❓', color: 'bg-stone-50 text-stone-500 border-stone-200' },
+const MATURITY_LABELS: Record<MaturityType, { label: string; color: string }> = {
+  ready: { label: 'À boire', color: 'bg-green-50 text-green-700 border-green-200' },
+  after5: { label: 'À conserver', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  past: { label: 'Passé', color: 'bg-stone-50 text-stone-600 border-stone-200' },
+  unknown: { label: 'Inconnu', color: 'bg-stone-50 text-stone-500 border-stone-200' },
 }
 
 function GlobalWineListContent() {
@@ -368,7 +370,7 @@ function GlobalWineListContent() {
         <div>
           <label className="block text-[10px] font-bold text-stone-400 uppercase mb-2">⏰ Maturité</label>
           <div className="flex gap-2 flex-wrap">
-            {(['ready', 'within5', 'after5'] as MaturityType[]).map(mat => (
+            {(['ready', 'after5', 'past'] as MaturityType[]).map(mat => (
               <button
                 key={mat}
                 onClick={() => setFilters(f => ({ ...f, maturity: mat === f.maturity ? '' : mat }))}
@@ -528,7 +530,9 @@ function GlobalWineListContent() {
                             >
                               <p className="flex items-center justify-between gap-2">
                                 <span className="text-xs truncate flex-1">{v.vintage} • {capitalize(v.appellation || v.region || v.country)}</span>
-                                <span className="text-xs font-medium shrink-0">{matLabel.icon}</span>
+                                <span className="shrink-0">
+                                  <MaturityIconStyled maturity={v.maturity} />
+                                </span>
                               </p>
                               <p className="text-xs text-stone-500 mt-1">
                                 <span className="font-semibold text-stone-700">{v.count} bouteille{v.count > 1 ? 's' : ''}</span>
