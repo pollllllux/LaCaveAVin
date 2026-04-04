@@ -239,7 +239,7 @@ export default function GlobalWineList() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 p-6 pb-24">
+    <div className="min-h-screen bg-stone-50 p-6">
       {/* Header */}
       <header className="max-w-2xl mx-auto space-y-4 mb-6">
         <div className="flex items-center gap-4">
@@ -469,13 +469,6 @@ export default function GlobalWineList() {
         )}
       </div>
 
-      {/* Bouton de retour flottant */}
-      <button
-        onClick={() => router.push('/')}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 px-8 py-4 bg-stone-800 text-white rounded-full shadow-2xl font-bold flex items-center gap-2 text-sm z-50 active:scale-95 transition-all hover:bg-stone-900"
-      >
-        Retour au menu
-      </button>
     </div>
   )
 }
