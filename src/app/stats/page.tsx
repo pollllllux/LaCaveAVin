@@ -77,9 +77,9 @@ export default function StatsPage() {
 
         {/* Grille couleurs */}
         <div className="grid grid-cols-3 gap-4">
-          <StatCard label="Rouges" value={reds} color="bg-red-100 text-red-800" />
-          <StatCard label="Blancs" value={whites} color="bg-amber-100 text-amber-800" />
-          <StatCard label="Rosés" value={roses} color="bg-rose-100 text-rose-800" />
+          <StatCard label="Rouges" value={reds} color="bg-red-100 text-red-800" onClick={() => router.push('/vins?color=red')} />
+          <StatCard label="Blancs" value={whites} color="bg-amber-100 text-amber-800" onClick={() => router.push('/vins?color=white')} />
+          <StatCard label="Rosés" value={roses} color="bg-rose-100 text-rose-800" onClick={() => router.push('/vins?color=rose')} />
         </div>
 
         {/* Alerte Apogée */}
@@ -198,12 +198,15 @@ export default function StatsPage() {
   )
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+function StatCard({ label, value, color, onClick }: { label: string; value: number; color: string; onClick?: () => void }) {
+  const Component = onClick ? 'button' : 'div'
+  const className = `p-4 rounded-3xl flex flex-col items-center justify-center ${color} ${onClick ? 'hover:shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer' : ''}`
+
   return (
-    <div className={`p-4 rounded-3xl flex flex-col items-center justify-center ${color}`}>
+    <Component onClick={onClick} className={className}>
       <span className="text-xl font-bold">{value}</span>
       <span className="text-[9px] uppercase font-bold tracking-tighter opacity-70">{label}</span>
-    </div>
+    </Component>
   )
 }
 
