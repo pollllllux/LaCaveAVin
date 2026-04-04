@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { BarChart3, ArrowLeft, Loader2, Wine, Globe, MapPin, Euro } from 'lucide-react'
+import { capitalize } from '@/lib/format'
 
 function groupAndSort(wines: any[], key: string): { label: string; count: number }[] {
   const map: Record<string, number> = {}
@@ -182,9 +183,9 @@ export default function StatsPage() {
                 </div>
               )}
               <div className="min-w-0">
-                <p className="font-bold text-stone-800 truncate">{mostExpensive.name || 'Sans nom'}</p>
+                <p className="font-bold text-stone-800 truncate">{capitalize(mostExpensive.name) || 'Sans nom'}</p>
                 <p className="text-xs text-stone-400 truncate">
-                  {[mostExpensive.appellation || mostExpensive.region, mostExpensive.vintage].filter(Boolean).join(' · ')}
+                  {[capitalize(mostExpensive.appellation || mostExpensive.region), mostExpensive.vintage].filter(Boolean).join(' · ')}
                 </p>
                 <p className="text-lg font-serif font-bold text-emerald-600 mt-1">{formatPrice(mostExpensive.price)}</p>
               </div>
@@ -231,7 +232,7 @@ function BreakdownCard({
             const content = (
               <>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="font-medium text-stone-700 truncate max-w-[60%]">{label}</span>
+                  <span className="font-medium text-stone-700 truncate max-w-[60%]">{capitalize(label)}</span>
                   <span className="text-stone-400 font-bold shrink-0">{count} · {pct}%</span>
                 </div>
                 <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden">

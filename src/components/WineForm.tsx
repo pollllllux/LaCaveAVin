@@ -4,6 +4,7 @@ import { X, Save, Wine as WineIcon, Star, Camera, ImagePlus, Loader2, Trash2 } f
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
 import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize } from '@/lib/wine-service'
+import { capitalize } from '@/lib/format'
 
 // ============================================================
 // DONNÉES GÉOGRAPHIQUES
@@ -526,13 +527,13 @@ function mapCountry(dbCountry: string | undefined | null): string {
   // Chercher une traduction directe anglais → français
   const key = dbCountry.toLowerCase().trim()
   if (COUNTRY_TRANSLATIONS[key]) {
-    return COUNTRY_TRANSLATIONS[key]
+    return capitalize(COUNTRY_TRANSLATIONS[key])
   }
 
   // Chercher une correspondance fuzzy dans ALL_COUNTRIES
   const normalized = normalize(dbCountry)
   const matched = ALL_COUNTRIES.find(c => normalize(c) === normalized)
-  return matched || dbCountry
+  return capitalize(matched || dbCountry)
 }
 
 /**
@@ -544,14 +545,14 @@ function mapRegion(country: string, dbRegion: string | undefined | null): string
   // Chercher une traduction directe anglais → français
   const key = dbRegion.toLowerCase().trim()
   if (REGION_TRANSLATIONS[key]) {
-    return REGION_TRANSLATIONS[key]
+    return capitalize(REGION_TRANSLATIONS[key])
   }
 
   // Chercher une correspondance fuzzy dans les régions du pays
   const regionList = REGIONS_BY_COUNTRY[country] || []
   const normalized = normalize(dbRegion)
   const matched = regionList.find(r => normalize(r) === normalized)
-  return matched || dbRegion
+  return capitalize(matched || dbRegion)
 }
 
 /**
@@ -563,7 +564,7 @@ function mapAppellation(region: string, dbAppellation: string | undefined | null
   const appellationList = APPELLATIONS_BY_REGION[region] || []
   const normalized = normalize(dbAppellation)
   const matched = appellationList.find(a => normalize(a) === normalized)
-  return matched || dbAppellation
+  return capitalize(matched || dbAppellation)
 }
 
 // ============================================================
@@ -738,7 +739,14 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       setUploadingPhoto(false)
     }
 
-    onSave({ ...form, image_url })
+    onSave({
+      ...form,
+      image_url,
+      name: capitalize(form.name),
+      country: capitalize(form.country),
+      region: capitalize(form.region),
+      appellation: capitalize(form.appellation),
+    })
     setSaving(false)
   }
 
@@ -842,7 +850,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
                         const appellation = mapAppellation(region, s.region_1)
                         setForm(f => ({
                           ...f,
-                          name: s.winery,
+                          name: capitalize(s.winery),
                           country,
                           region,
                           appellation,

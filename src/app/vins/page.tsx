@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Wine, Search, ArrowLeft, Loader2, ChevronRight, X } from 'lucide-react'
+import { capitalize } from '@/lib/format'
 
 interface WineWithContext {
   wine: any
@@ -369,7 +370,7 @@ export default function GlobalWineList() {
                       : 'bg-white text-stone-700 border-stone-200 hover:border-bordeaux'
                   }`}
                 >
-                  {country}
+                  {capitalize(country)}
                 </button>
               ))}
             </div>
@@ -391,7 +392,7 @@ export default function GlobalWineList() {
                       : 'bg-white text-stone-700 border-stone-200 hover:border-bordeaux'
                   }`}
                 >
-                  {region}
+                  {capitalize(region)}
                 </button>
               ))}
             </div>
@@ -413,7 +414,7 @@ export default function GlobalWineList() {
                       : 'bg-white text-stone-700 border-stone-200 hover:border-bordeaux'
                   }`}
                 >
-                  {appellation}
+                  {capitalize(appellation)}
                 </button>
               ))}
             </div>
@@ -456,10 +457,10 @@ export default function GlobalWineList() {
 
                   {/* Contenu */}
                   <div className="p-4 space-y-2">
-                    <h3 className="font-bold text-stone-800 line-clamp-2">{wine.name}</h3>
-                    <p className="text-sm text-stone-600">{wine.vintage} • {wine.appellation || wine.region || wine.country}</p>
+                    <h3 className="font-bold text-stone-800 line-clamp-2">{capitalize(wine.name)}</h3>
+                    <p className="text-sm text-stone-600">{wine.vintage} • {capitalize(wine.appellation || wine.region || wine.country)}</p>
                     <div className="text-[11px] text-stone-500 space-y-1">
-                      <p>{wine.country} {wine.region ? `• ${wine.region}` : ''}</p>
+                      <p>{capitalize(wine.country)} {wine.region ? `• ${capitalize(wine.region)}` : ''}</p>
                       <p className="text-stone-400">{w.cellar.name} • {w.storageUnit.name}</p>
                     </div>
                   </div>
