@@ -587,6 +587,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     peak_date: initialData?.peak_date ?? new Date().getFullYear() + 10,
     image_url: initialData?.image_url ?? '',
     price: initialData?.price ?? 0,
+    quantity: 1,
   })
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.image_url ?? null)
@@ -893,6 +894,17 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
                   <option value="white">Blanc</option>
                   <option value="rose">Rosé</option>
                 </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Nombre de bouteilles</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
+                  value={form.quantity}
+                  onChange={e => setForm({ ...form, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                />
               </div>
             </div>
           </div>

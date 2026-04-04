@@ -37,7 +37,8 @@ export default function CellarDetailPage() {
   const [showConsumeModal, setShowConsumeModal] = useState<any>(null)
   const [showAddUnit, setShowAddUnit] = useState(false)
   const [showFullPhoto, setShowFullPhoto] = useState(false)
-  
+  const [bottlesAwaitingPlacement, setBottlesAwaitingPlacement] = useState<any[]>([])
+
   // Formulaire pour nouveau casier (Spec 8)
   const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
 
@@ -145,38 +146,39 @@ async function fetchBottles() {
 
 
   const handleSaveWine = async (wineFields: any) => {
-    //alert('on passe dans saveWine.')
     if (!selectedPos) {
-      alert('Sélectionne une position vide avant de valider cette bouteille.')
+      alert("Selectionne une position vide avant de valider cette bouteille.")
       return
     }
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      alert('Tu dois être connecté pour ajouter une bouteille.')
+      alert("Tu dois etre connecte pour ajouter une bouteille.")
       return
     }
 
     const currentUnit = cellar?.storage_units?.[activeUnitIndex]
     if (!currentUnit) {
-      alert('Impossible de trouver le casier actif.')
+      alert("Impossible de trouver le casier actif.")
       return
     }
 
-    // 1. Créer la fiche vin (Table WINES - Spec 14/19)
+    const quantity = wineFields.quantity || 1
+
+    // 1. Create wine record (Table WINES - Spec 14/19)
     const { data: wine, error: wineErr } = await supabase
       .from('wines')
-      .insert([{ ...wineFields, user_id: user.id }])
+      .insert([{ ...wineFields, quantity: undefined, user_id: user.id }])
       .select()
       .single()
 
     if (wineErr) {
-      console.error('Erreur création vin:', wineErr.message)
-      alert("Erreur lors de la création du vin. Vérifie les champs et réessaie.")
+      console.error("Erreur creation vin:", wineErr.message)
+      alert("Erreur lors de la creation du vin. Verifie les champs et reessaie.")
       return
     }
 
-    // 2. Créer l'instance physique (Table BOTTLES - Spec 19)
+    // 2. Create first physical bottle (Table BOTTLES - Spec 19)
     const { error: bottleErr } = await supabase.from('bottles').insert([{
       wine_id: wine.id,
       storage_unit_id: currentUnit.id,
@@ -186,9 +188,21 @@ async function fetchBottles() {
     }])
 
     if (bottleErr) {
-      console.error('Erreur création bouteille:', bottleErr.message)
-      alert('Erreur lors de l’ajout de la bouteille. Vérifie la position et réessaie.')
+      console.error("Erreur creation bouteille:", bottleErr.message)
+      alert("Erreur lors de l'ajout de la bouteille. Verifie la position et reessaie.")
       return
+    }
+
+    // 3. If quantity > 1, add remaining bottles to awaiting placement
+    if (quantity > 1) {
+      const remainingBottles = Array.from({ length: quantity - 1 }, () => ({
+        wine_id: wine.id,
+        storage_unit_id: currentUnit.id,
+        wine: wine
+      }))
+      setBottlesAwaitingPlacement(remainingBottles)
+      const msg = `Vous avez ${quantity - 1} bouteille${quantity - 1 > 1 ? 's' : ''} a placer. Cliquez sur les emplacements vides pour les placer.`
+      alert(msg)
     }
 
     setSelectedPos(null)
@@ -213,7 +227,7 @@ async function fetchBottles() {
 
   const handleConfirmConsume = async (consumptionData: any) => {
     const bottleId = showConsumeModal.id
-    
+
     // 1. Sortie de cave (Spec 19)
     const { error: updateError } = await supabase
       .from('bottles')
@@ -228,10 +242,47 @@ async function fetchBottles() {
         rating: consumptionData.rating,
         review: consumptionData.review
       }])
-      
+
       setShowConsumeModal(null)
       setViewingBottle(null)
       fetchBottles()
+    }
+  }
+
+  const handlePlaceAwaitingBottle = async (x: number, y: number) => {
+    if (bottlesAwaitingPlacement.length === 0) return
+
+    const currentUnit = cellar?.storage_units?.[activeUnitIndex]
+    if (!currentUnit) return
+
+    const bottleToPlace = bottlesAwaitingPlacement[0]
+
+    // Create bottle in database
+    const { error } = await supabase.from('bottles').insert([{
+      wine_id: bottleToPlace.wine_id,
+      storage_unit_id: currentUnit.id,
+      pos_x: x,
+      pos_y: y,
+      status: 'in_stock'
+    }])
+
+    if (error) {
+      console.error('Erreur creation bouteille:', error.message)
+      alert('Erreur lors du placement de la bouteille.')
+      return
+    }
+
+    // Remove from awaiting list
+    const remaining = bottlesAwaitingPlacement.slice(1)
+    setBottlesAwaitingPlacement(remaining)
+
+    // If last bottle, refresh grid
+    if (remaining.length === 0) {
+      await fetchBottles()
+    } else {
+      // Otherwise, update alert
+      alert(`Bouteille placee. Vous avez ${remaining.length} bouteille${remaining.length > 1 ? 's' : ''} a placer.`)
+      await fetchBottles()
     }
   }
 
@@ -349,6 +400,19 @@ async function fetchBottles() {
               </div>
             </div>
 
+            {/* Alert: Bottles awaiting placement */}
+            {bottlesAwaitingPlacement.length > 0 && (
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-[2.5rem] p-4 flex items-center gap-3 animate-pulse">
+                <div className="w-3 h-3 rounded-full bg-blue-400"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-blue-900">
+                    {bottlesAwaitingPlacement.length} bouteille{bottlesAwaitingPlacement.length > 1 ? 's' : ''} a placer
+                  </p>
+                  <p className="text-[10px] text-blue-700">Cliquez sur les emplacements vides pour les placer</p>
+                </div>
+              </div>
+            )}
+
             {/* Grille Interactive (Spec 10) */}
             <div className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-stone-100 relative overflow-hidden">
               <div 
@@ -361,16 +425,27 @@ async function fetchBottles() {
                   const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
                   const wine = bottle?.wine || bottle?.wines
                   const isOccupied = Boolean(bottle)
-                  
+                  const hasAwaitingBottles = bottlesAwaitingPlacement.length > 0
+
                   return (
-                    <div 
+                    <div
                       key={i}
-                      onClick={() => bottle ? setViewingBottle(bottle) : setSelectedPos({x, y})}
+                      onClick={() => {
+                        if (bottle) {
+                          setViewingBottle(bottle)
+                        } else if (hasAwaitingBottles) {
+                          handlePlaceAwaitingBottle(x, y)
+                        } else {
+                          setSelectedPos({x, y})
+                        }
+                      }}
                       className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm relative overflow-hidden group
-                        ${wine 
-                          ? (wine.color === 'white' ? 'bg-amber-300 border-amber-400' : wine.color === 'rose' ? 'bg-rose-200 border-rose-300' : 'bg-bordeaux border-bordeaux text-white') 
-                          : isOccupied 
-                          ? 'bg-stone-200 border-stone-300 text-stone-600' 
+                        ${wine
+                          ? (wine.color === 'white' ? 'bg-amber-300 border-amber-400' : wine.color === 'rose' ? 'bg-rose-200 border-rose-300' : 'bg-bordeaux border-bordeaux text-white')
+                          : isOccupied
+                          ? 'bg-stone-200 border-stone-300 text-stone-600'
+                          : hasAwaitingBottles
+                          ? 'bg-blue-50 border-blue-300 text-blue-400 hover:border-blue-400 hover:bg-blue-100'
                           : 'bg-stone-50 border-stone-100 text-stone-200 hover:border-bordeaux/30 hover:bg-stone-100'}`}
                     >
                       {wine ? (
@@ -379,7 +454,9 @@ async function fetchBottles() {
                           <span className="text-[7px] font-bold">{wine.vintage}</span>
                         </div>
                       ) : isOccupied ? (
-                        <div className="text-stone-600 text-[10px] font-bold uppercase tracking-[0.2em]">Occupé</div>
+                        <div className="text-stone-600 text-[10px] font-bold uppercase tracking-[0.2em]">Occupe</div>
+                      ) : hasAwaitingBottles ? (
+                        <Plus size={12} className="opacity-100 scale-110 transition-all" />
                       ) : (
                         <Plus size={12} className="opacity-20 group-hover:opacity-100 group-hover:scale-110 transition-all" />
                       )}
