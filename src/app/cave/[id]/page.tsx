@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import WineForm from '@/components/WineForm'
 import ConsumeModal from '@/components/ConsumeModal'
+import { capitalize } from '@/lib/format'
 
 export default function CellarDetailPage() {
   const { id } = useParams()
@@ -38,6 +39,16 @@ export default function CellarDetailPage() {
   const [showAddUnit, setShowAddUnit] = useState(false)
   const [showFullPhoto, setShowFullPhoto] = useState(false)
   const [bottlesAwaitingPlacement, setBottlesAwaitingPlacement] = useState<any[]>([])
+  const [longPressPopover, setLongPressPopover] = useState<{ wine: any; x: number; y: number } | null>(null)
+  const [hoverPopover, setHoverPopover] = useState<{ wine: any; mouseX: number; mouseY: number } | null>(null)
+  const [isHoverDevice, setIsHoverDevice] = useState(true)
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    // Detect if device supports hover (PC) or not (mobile)
+    const hasHover = window.matchMedia('(hover: hover)').matches
+    setIsHoverDevice(hasHover)
+  }, [])
 
   // Formulaire pour nouveau casier (Spec 8)
   const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
@@ -281,6 +292,20 @@ async function fetchBottles() {
     await fetchBottles()
   }
 
+  const handleLongPressStart = (wine: any, x: number, y: number) => {
+    if (!wine) return
+    longPressTimerRef.current = setTimeout(() => {
+      setLongPressPopover({ wine, x, y })
+    }, 500)
+  }
+
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-stone-50 text-bordeaux">
       <Loader2 className="animate-spin mb-4" size={40} />
@@ -425,7 +450,13 @@ async function fetchBottles() {
                   return (
                     <div
                       key={i}
+                      onPointerDown={() => !isHoverDevice && handleLongPressStart(wine, x, y)}
+                      onPointerUp={() => !isHoverDevice && handleLongPressEnd()}
+                      onPointerLeave={() => !isHoverDevice && handleLongPressEnd()}
+                      onMouseEnter={(e) => isHoverDevice && wine && setHoverPopover({ wine, mouseX: e.clientX, mouseY: e.clientY })}
+                      onMouseLeave={() => isHoverDevice && setHoverPopover(null)}
                       onClick={() => {
+                        handleLongPressEnd()
                         if (bottle) {
                           setViewingBottle(bottle)
                         } else if (hasAwaitingBottles) {
@@ -469,6 +500,27 @@ async function fetchBottles() {
           </div>
         )}
       </div>
+
+      {/* --- LONG PRESS POPOVER (Mobile) --- */}
+      {!isHoverDevice && longPressPopover && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setLongPressPopover(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-4 max-w-xs animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <div className="text-center space-y-2">
+              <h3 className="font-bold text-stone-800">{capitalize(longPressPopover.wine.name)}</h3>
+              <p className="text-sm text-stone-600">{longPressPopover.wine.vintage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- HOVER TOOLTIP (PC) --- */}
+      {isHoverDevice && hoverPopover && (
+        <div className="fixed z-[200] bg-stone-900 text-white rounded-lg px-3 py-2 text-sm pointer-events-none animate-in fade-in duration-150" style={{ top: `${hoverPopover.mouseY - 60}px`, left: `${hoverPopover.mouseX}px`, transform: 'translateX(-50%)' }}>
+          <div className="font-bold text-center">{capitalize(hoverPopover.wine.name)}</div>
+          <div className="text-xs text-stone-300 text-center">{hoverPopover.wine.vintage}</div>
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-stone-900"></div>
+        </div>
+      )}
 
       {/* --- MODAL AJOUT UNITE (Spec 8) --- */}
       {showAddUnit && (
