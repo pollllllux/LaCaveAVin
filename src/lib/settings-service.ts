@@ -52,14 +52,16 @@ export async function saveUserSettings(settings: UserSettings): Promise<boolean>
 
     const { error } = await supabase
       .from('user_settings')
-      .upsert({
-        user_id: user.id,
-        blink_duration: settings.blink_duration,
-        timeout_duration: settings.timeout_duration,
-        display_density: settings.display_density,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id)
+      .upsert(
+        {
+          user_id: user.id,
+          blink_duration: settings.blink_duration,
+          timeout_duration: settings.timeout_duration,
+          display_density: settings.display_density,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
 
     if (error) {
       console.error('Erreur save settings:', error.message)
