@@ -434,41 +434,88 @@ export default function GlobalWineList() {
 
       {/* Liste des vins - Cards compactes */}
       <div className="max-w-2xl mx-auto">
-        {filteredWines.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredWines.map(w => {
-              const wine = w.wine
-              const maturity = getMaturity(wine.peak_date)
-              const matLabel = MATURITY_LABELS[maturity]
-              const colorBg =
-                wine.color === 'red' ? 'bg-bordeaux/10 text-bordeaux' : wine.color === 'white' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-500'
+        {filteredWines.length > 0 ? (() => {
+          // Group wines by name only, tracking vintages and counts
+          const wineGroups = new Map<string, {
+            wine: any
+            vintages: Array<{ vintage: number; appellation: string; region: string; country: string; count: number; maturity: MaturityType }>
+          }>()
 
-              return (
-                <div key={wine.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-shadow">
-                  {/* En-tête avec couleur et maturité */}
-                  <div className="flex items-start justify-between p-4 border-b border-stone-100">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${colorBg}`}>
-                      <Wine size={20} />
+          filteredWines.forEach(w => {
+            const key = w.wine.name
+            if (!wineGroups.has(key)) {
+              wineGroups.set(key, { wine: w.wine, vintages: [] })
+            }
+            const group = wineGroups.get(key)!
+            const existingVintage = group.vintages.find(v => v.vintage === w.wine.vintage)
+            if (existingVintage) {
+              existingVintage.count += 1
+            } else {
+              group.vintages.push({
+                vintage: w.wine.vintage,
+                appellation: w.wine.appellation,
+                region: w.wine.region,
+                country: w.wine.country,
+                count: 1,
+                maturity: getMaturity(w.wine.peak_date)
+              })
+            }
+          })
+
+          // Sort vintages by year descending
+          wineGroups.forEach(group => {
+            group.vintages.sort((a, b) => b.vintage - a.vintage)
+          })
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from(wineGroups.values()).map((group, idx) => {
+                const wine = group.wine
+                const colorBg =
+                  wine.color === 'red' ? 'bg-bordeaux/10 text-bordeaux' : wine.color === 'white' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-500'
+
+                return (
+                  <div key={`${wine.name}|${idx}`} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col h-64">
+                    {/* En-tête avec couleur */}
+                    <div className="flex items-start justify-between p-4 border-b border-stone-100 shrink-0">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${colorBg}`}>
+                        <Wine size={20} />
+                      </div>
                     </div>
-                    <div className={`px-2 py-1 rounded-lg border text-xs font-medium ${matLabel.color}`}>
-                      {matLabel.icon}
+
+                    {/* Contenu avec scrollable vintages */}
+                    <div className="p-4 space-y-3 flex flex-col min-h-0 flex-1">
+                      <h3 className="font-bold text-stone-800">{capitalize(wine.name)}</h3>
+
+                      {/* Vintages list with scrollbar if needed */}
+                      <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                        {group.vintages.map((v, vIdx) => {
+                          const matLabel = MATURITY_LABELS[v.maturity]
+                          return (
+                            <div key={vIdx} className="text-sm text-stone-600 pb-2 border-b border-stone-100 last:border-b-0">
+                              <p className="flex items-center justify-between gap-2">
+                                <span className="text-xs truncate flex-1">{v.vintage} • {capitalize(v.appellation || v.region || v.country)}</span>
+                                <span className="text-xs font-medium shrink-0">{matLabel.icon}</span>
+                              </p>
+                              <p className="text-xs text-stone-500 mt-1">
+                                <span className="font-semibold text-stone-700">{v.count} bouteille{v.count > 1 ? 's' : ''}</span>
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Pays et région en bas */}
+                      <div className="text-[11px] text-stone-500 mt-2 pt-2 border-t border-stone-100 shrink-0">
+                        <p>{capitalize(wine.country)} {wine.region ? `• ${capitalize(wine.region)}` : ''}</p>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Contenu */}
-                  <div className="p-4 space-y-2">
-                    <h3 className="font-bold text-stone-800 line-clamp-2">{capitalize(wine.name)}</h3>
-                    <p className="text-sm text-stone-600">{wine.vintage} • {capitalize(wine.appellation || wine.region || wine.country)}</p>
-                    <div className="text-[11px] text-stone-500 space-y-1">
-                      <p>{capitalize(wine.country)} {wine.region ? `• ${capitalize(wine.region)}` : ''}</p>
-                      <p className="text-stone-400">{w.cellar.name} • {w.storageUnit.name}</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
+                )
+              })}
+            </div>
+          )
+        })() : (
           <div className="text-center py-20">
             <p className="text-stone-300 italic">Aucun flacon ne correspond à ces critères...</p>
           </div>

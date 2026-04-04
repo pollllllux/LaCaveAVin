@@ -165,10 +165,13 @@ async function fetchBottles() {
 
     const quantity = wineFields.quantity || 1
 
+    // Extract quantity before inserting to DB (it's not a column in wines table)
+    const { quantity: _, ...wineData } = wineFields
+
     // 1. Create wine record (Table WINES - Spec 14/19)
     const { data: wine, error: wineErr } = await supabase
       .from('wines')
-      .insert([{ ...wineFields, quantity: undefined, user_id: user.id }])
+      .insert([{ ...wineData, user_id: user.id }])
       .select()
       .single()
 
@@ -201,8 +204,6 @@ async function fetchBottles() {
         wine: wine
       }))
       setBottlesAwaitingPlacement(remainingBottles)
-      const msg = `Vous avez ${quantity - 1} bouteille${quantity - 1 > 1 ? 's' : ''} a placer. Cliquez sur les emplacements vides pour les placer.`
-      alert(msg)
     }
 
     setSelectedPos(null)
@@ -276,14 +277,8 @@ async function fetchBottles() {
     const remaining = bottlesAwaitingPlacement.slice(1)
     setBottlesAwaitingPlacement(remaining)
 
-    // If last bottle, refresh grid
-    if (remaining.length === 0) {
-      await fetchBottles()
-    } else {
-      // Otherwise, update alert
-      alert(`Bouteille placee. Vous avez ${remaining.length} bouteille${remaining.length > 1 ? 's' : ''} a placer.`)
-      await fetchBottles()
-    }
+    // Refresh grid
+    await fetchBottles()
   }
 
   if (loading) return (
