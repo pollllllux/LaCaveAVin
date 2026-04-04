@@ -244,7 +244,7 @@ async function fetchBottles() {
       <div className={`fixed inset-y-0 left-0 w-72 bg-stone-900 text-stone-100 z-[300] transform transition-transform duration-500 ease-in-out ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
         <div className="p-8 space-y-8">
           <div className="flex justify-between items-center border-b border-stone-800 pb-6">
-            <span className="font-serif italic font-bold text-2xl text-bordeaux">maCaveAV</span>
+            <span className="font-serif italic font-bold text-2xl text-bordeaux">maCaveAVin</span>
             <X onClick={() => setIsSidebarOpen(false)} className="text-stone-500 cursor-pointer active:scale-75 transition-transform" />
           </div>
           <nav className="space-y-2">

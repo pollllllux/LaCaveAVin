@@ -48,7 +48,7 @@ export default function LoginPage() {
           <div className="inline-flex p-4 rounded-full bg-bordeaux/10 text-bordeaux mb-2">
             <Wine size={48} />
           </div>
-          <h1 className="text-4xl font-serif font-bold text-bordeaux italic">maCaveAV</h1>
+          <h1 className="text-4xl font-serif font-bold text-bordeaux italic">maCaveAVin</h1>
           <p className="text-stone-500 text-sm">Gérez votre collection avec élégance</p>
         </div>
 
