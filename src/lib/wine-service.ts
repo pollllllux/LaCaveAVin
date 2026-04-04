@@ -52,7 +52,7 @@ export function extractVintageFromOCR(text: string): number | null {
   return Math.max(...years)
 }
 
-function normalize(s: string): string {
+export function normalize(s: string): string {
   return s
     .toLowerCase()
     .normalize('NFD')
@@ -96,4 +96,71 @@ export async function fetchWineData(query: string) {
   console.log("Recherche discrète pour:", query);
   // Ici le dev implémenterait le parsing via Proxy de Wine-Searcher
   return { name: "Château Margaux", vintage: 2015, region: "Bordeaux" };
+}
+
+// ─── Recherche dans wine_catalog ───────────────────────────────────────────
+export interface WineSuggestion {
+  winery: string
+  country: string
+  province: string
+  region_1: string
+  variety: string
+}
+
+export async function searchWineCatalog(
+  query: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any
+): Promise<WineSuggestion[]> {
+  const raw = query.trim()
+  if (raw.length < 2) return []
+
+  // Normaliser le query pour supprimer accents et tirets
+  // Garder le query complet pour la recherche, même s'il contient des mots génériques
+  const searchTerm = normalize(raw)
+  if (searchTerm.length < 2) return []
+
+  // Diviser la recherche en mots
+  const searchWords = searchTerm.split(/\s+/).filter(w => w.length > 0)
+
+  // Construire une requête Supabase avec ILIKE pour chaque mot
+  // Cela pré-filtre les résultats avant de les ramener au client
+  let supabaseQuery = supabaseClient
+    .from('wine_catalog')
+    .select('winery, country, province, region_1, variety')
+    .not('winery', 'is', null)
+
+  // Ajouter une condition ILIKE pour le premier mot (pour pré-filtrer)
+  if (searchWords.length > 0) {
+    supabaseQuery = supabaseQuery.ilike('winery', `%${searchWords[0]}%`)
+  }
+
+  const { data, error } = await supabaseQuery.limit(100)
+
+  if (error || !data) return []
+
+  // Filtrer côté client : chercher les vins qui contiennent TOUS les mots du query
+  const matches = data.filter(row => {
+    const normalizedWinery = normalize(row.winery)
+    return searchWords.every(word => normalizedWinery.includes(word))
+  })
+
+  // Dédupliquer par winery et favoriser France
+  const seen = new Set<string>()
+  const france: WineSuggestion[] = []
+  const others: WineSuggestion[] = []
+
+  for (const row of matches) {
+    const key = row.winery.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    if (row.country?.toLowerCase() === 'france') {
+      france.push(row)
+    } else {
+      others.push(row)
+    }
+  }
+
+  return [...france, ...others].slice(0, 3)
 }

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Save, Wine as WineIcon, Star, Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR } from '@/lib/wine-service'
+import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize } from '@/lib/wine-service'
 
 // ============================================================
 // DONNÉES GÉOGRAPHIQUES
@@ -132,13 +132,21 @@ const APPELLATIONS_BY_REGION: Record<string, string[]> = {
   ],
   // France – Bourgogne
   'Bourgogne': [
+    // Grand Crus
     'Chablis', 'Chambolle-Musigny', 'Gevrey-Chambertin', 'Pommard',
     'Meursault', 'Puligny-Montrachet', 'Chassagne-Montrachet',
     'Nuits-Saint-Georges', 'Vosne-Romanée', 'Beaune', 'Volnay',
+    'Morey-Saint-Denis', 'Vougeot', 'Echezeaux', 'Grands Echezeaux',
+    'Richebourg', 'Romanée-Conti', 'La Romanée', 'La Tâche',
+    // Premiers Crus et Régionaux
     'Santenay', 'Aloxe-Corton', 'Savigny-lès-Beaune',
-    'Auxey-Duresses', 'Morey-Saint-Denis', 'Vougeot', 'Marsannay',
-    'Saint-Aubin', 'Mercurey', 'Givry', 'Montagny', 'Rully',
-    'Bourgogne Aligoté', 'Bourgogne Passetoutgrains',
+    'Auxey-Duresses', 'Marsannay', 'Saint-Aubin', 'Mercurey',
+    'Givry', 'Montagny', 'Rully', 'Maranges', 'Ladoix',
+    'Pernand-Vergelesses', 'Chorey-lès-Beaune',
+    // Régionaux
+    'Bourgogne', 'Bourgogne Aligoté', 'Bourgogne Passetoutgrains',
+    'Bourgogne Gamay', 'Bourgogne Blanc', 'Bourgogne Rouge',
+    'Crémant de Bourgogne',
   ],
   // France – Champagne
   'Champagne': [
@@ -336,8 +344,11 @@ function Combobox({
   // Filtre : si la valeur est vide, on affiche toutes les suggestions telles quelles
   // Sinon on filtre par correspondance
   const filtered = value
-    ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
+    ? suggestions.filter(s => normalize(s).includes(normalize(value)))
     : suggestions
+
+  // Afficher les suggestions seulement après 3 caractères
+  const shouldShowSuggestions = value.length >= 3 && open && filtered.length > 0
 
   return (
     <div className="space-y-1 relative" ref={ref}>
@@ -347,9 +358,9 @@ function Combobox({
         value={value}
         placeholder={placeholder}
         onChange={e => { onChange(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => value.length >= 3 && setOpen(true)}
       />
-      {open && filtered.length > 0 && (
+      {shouldShowSuggestions && (
         <ul className="absolute z-[600] left-0 right-0 bg-white border border-stone-100 rounded-2xl shadow-2xl max-h-44 overflow-y-auto mt-1 top-full">
           {filtered.slice(0, 20).map(s => (
             <li
@@ -364,6 +375,195 @@ function Combobox({
       )}
     </div>
   )
+}
+
+// ============================================================
+// MAPPAGE DES DONNÉES WINE_CATALOG VERS L'APP
+// ============================================================
+
+// Traductions anglais → français pour les pays et régions
+const COUNTRY_TRANSLATIONS: Record<string, string> = {
+  'italy': 'Italie',
+  'spain': 'Espagne',
+  'germany': 'Allemagne',
+  'usa': 'États-Unis',
+  'united states': 'États-Unis',
+  'argentina': 'Argentine',
+  'chile': 'Chili',
+  'australia': 'Australie',
+  'new zealand': 'Nouvelle-Zélande',
+  'austria': 'Autriche',
+  'greece': 'Grèce',
+  'hungary': 'Hongrie',
+  'romania': 'Roumanie',
+  'georgia': 'Géorgie',
+  'lebanon': 'Liban',
+  'israel': 'Israël',
+  'morocco': 'Maroc',
+  'tunisia': 'Tunisie',
+  'switzerland': 'Suisse',
+  'bulgaria': 'Bulgarie',
+  'croatia': 'Croatie',
+  'portugal': 'Portugal',
+  'south africa': 'Afrique du Sud',
+  'canada': 'Canada',
+  'brazil': 'Brésil',
+  'france': 'France',
+}
+
+const REGION_TRANSLATIONS: Record<string, string> = {
+  // Italie
+  'tuscany': 'Toscane',
+  'piedmont': 'Piémont',
+  'veneto': 'Vénétie',
+  'sicily': 'Sicile',
+  'campania': 'Campanie',
+  'apulia': 'Pouilles',
+  'lombardy': 'Lombardie',
+  'sardinia': 'Sardaigne',
+  'emilia-romagna': 'Émilie-Romagne',
+  'calabria': 'Calabre',
+  'liguria': 'Ligurie',
+  'umbria': 'Ombrie',
+  'marches': 'Marches',
+  'friuli-venezia giulia': 'Frioul-Vénétie Julienne',
+
+  // Grèce
+  'achaia': 'Achaïe',
+  'aegean': 'Égée',
+  'arcadia': 'Arcadie',
+  'attica': 'Attique',
+  'beotia': 'Béotie',
+  'amyndeon': 'Amyndeon',
+  'agioritikos': 'Agioritikos',
+
+  // Portugal
+  'alentejo': 'Alentejo',
+  'alentejano': 'Alentejo',
+  'alenteo': 'Alentejo',
+  'algarve': 'Algarve',
+  'bairrada': 'Bairrada',
+  'beira atlantico': 'Beira Atlântica',
+  'beira interior': 'Beira Interior',
+  'beiras': 'Beiras',
+  'bucelas': 'Bucelas',
+  'alenquer': 'Alenquer',
+
+  // France
+  'alsace': 'Alsace',
+  'beaujolais': 'Beaujolais',
+  'bordeaux': 'Bordeaux',
+  'burgundy': 'Bourgogne',
+
+  // Allemagne
+  'ahr': 'Ahr',
+  'baden': 'Baden',
+
+  // Autriche
+  'burgenland': 'Burgenland',
+  'carnuntum': 'Carnuntum',
+
+  // Chili
+  'aconcagua costa': 'Aconcagua Costa',
+  'aconcagua valley': 'Vallée d\'Aconcagua',
+  'apalta': 'Apalta',
+  'bío bío valley': 'Vallée du Bío Bío',
+  'cachapoal valley': 'Vallée de Cachapoal',
+  'casablanca valley': 'Vallée de Casablanca',
+  'casablanca & leyda valleys': 'Vallées de Casablanca et Leyda',
+  'casablanca-curicó valley': 'Vallée de Casablanca-Curicó',
+  'cauquenes valley': 'Vallée de Cauquenes',
+
+  // Espagne
+  'catalonia': 'Catalogne',
+  'andalucia': 'Andalousie',
+
+  // Afrique du Sud
+  'breede river valley': 'Vallée de la Breede River',
+  'breedekloof': 'Breedekloof',
+  'bot river': 'Bot River',
+  'cape agulhas': 'Cap Agulhas',
+  'cape peninsula': 'Péninsule du Cap',
+  'cape south coast': 'Côte Sud du Cap',
+
+  // Nouvelle-Zélande
+  'awatere valley': 'Vallée d\'Awatere',
+  'canterbury': 'Canterbury',
+
+  // USA
+  'arizona': 'Arizona',
+  'california': 'Californie',
+
+  // Liban
+  'bekaa valley': 'Vallée de la Bekaa',
+
+  // Turquie
+  'cappadocia': 'Cappadoce',
+  'ankara': 'Ankara',
+
+  // Canada
+  'british columbia': 'Colombie-Britannique',
+
+  // Uruguay
+  'canelones': 'Canelones',
+
+  // Autres
+  'brazil': 'Brésil',
+  'campanha': 'Campanha',
+  'brda': 'Brda',
+  'cahul': 'Cahul',
+  'atalanti valley': 'Vallée d\'Atalanti',
+  'black sea coastal': 'Côte de la Mer Noire',
+}
+
+/**
+ * Cherche le pays en français correspondant à la valeur de la BD
+ * Utilise le nommage de l'app si trouvé, sinon retourne la valeur telle quelle
+ */
+function mapCountry(dbCountry: string | undefined | null): string {
+  if (!dbCountry) return 'France'
+
+  // Chercher une traduction directe anglais → français
+  const key = dbCountry.toLowerCase().trim()
+  if (COUNTRY_TRANSLATIONS[key]) {
+    return COUNTRY_TRANSLATIONS[key]
+  }
+
+  // Chercher une correspondance fuzzy dans ALL_COUNTRIES
+  const normalized = normalize(dbCountry)
+  const matched = ALL_COUNTRIES.find(c => normalize(c) === normalized)
+  return matched || dbCountry
+}
+
+/**
+ * Cherche la région en français correspondant au pays et à la valeur de la BD
+ */
+function mapRegion(country: string, dbRegion: string | undefined | null): string {
+  if (!dbRegion) return ''
+
+  // Chercher une traduction directe anglais → français
+  const key = dbRegion.toLowerCase().trim()
+  if (REGION_TRANSLATIONS[key]) {
+    return REGION_TRANSLATIONS[key]
+  }
+
+  // Chercher une correspondance fuzzy dans les régions du pays
+  const regionList = REGIONS_BY_COUNTRY[country] || []
+  const normalized = normalize(dbRegion)
+  const matched = regionList.find(r => normalize(r) === normalized)
+  return matched || dbRegion
+}
+
+/**
+ * Cherche l'appellation en français correspondant à la région et à la valeur de la BD
+ */
+function mapAppellation(region: string, dbAppellation: string | undefined | null): string {
+  if (!dbAppellation) return ''
+
+  const appellationList = APPELLATIONS_BY_REGION[region] || []
+  const normalized = normalize(dbAppellation)
+  const matched = appellationList.find(a => normalize(a) === normalized)
+  return matched || dbAppellation
 }
 
 // ============================================================
@@ -393,23 +593,41 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [ocrLoading, setOcrLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<WineSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
+  // ---- Auto-complétion du champ "Domaine / Cuvée" ----
+  useEffect(() => {
+    if (ocrLoading) return
+    const timer = setTimeout(async () => {
+      if (form.name.length >= 3) {
+        const hits = await searchWineCatalog(form.name, supabase)
+        setSuggestions(hits)
+        setShowSuggestions(hits.length > 0)
+      } else {
+        setSuggestions([])
+        setShowSuggestions(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [form.name, ocrLoading])
+
   // ---- Suggestions dynamiques ----
   const countrySuggestions = form.country
-    ? ALL_COUNTRIES.filter(c => c.toLowerCase().includes(form.country.toLowerCase()))
+    ? ALL_COUNTRIES.filter(c => normalize(c).includes(normalize(form.country)))
     : TOP_WINE_COUNTRIES
 
   const regionList = REGIONS_BY_COUNTRY[form.country] || []
   const regionSuggestions = form.region
-    ? regionList.filter(r => r.toLowerCase().includes(form.region.toLowerCase()))
+    ? regionList.filter(r => normalize(r).includes(normalize(form.region)))
     : regionList
 
   const appellationList = APPELLATIONS_BY_REGION[form.region] || []
   const appellationSuggestions = form.appellation
-    ? appellationList.filter(a => a.toLowerCase().includes(form.appellation.toLowerCase()))
+    ? appellationList.filter(a => normalize(a).includes(normalize(form.appellation)))
     : appellationList
 
   // ---- Handlers avec reset des champs dépendants ----
@@ -445,9 +663,22 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       const domain = !form.name ? extractDomainFromOCR(text) : null
       const geo = extractAppellationFromOCR(text, REGIONS_BY_COUNTRY, APPELLATIONS_BY_REGION)
       const vintage = extractVintageFromOCR(text)
+
+      // Vérifier si le domaine existe dans wine_catalog
+      if (domain) {
+        const hits = await searchWineCatalog(domain, supabase)
+        if (hits.length > 0) {
+          setSuggestions(hits)
+          setShowSuggestions(true)
+          // Ne pas pré-remplir le champ, laisser l'utilisateur choisir
+        } else {
+          setSuggestions([])
+          setShowSuggestions(false)
+        }
+      }
+
       setForm(f => ({
         ...f,
-        ...(domain ? { name: domain } : {}),
         ...(geo?.country && !f.country ? { country: geo.country } : {}),
         ...(geo?.region && !f.region ? { region: geo.region } : {}),
         ...(geo?.appellation && !f.appellation ? { appellation: geo.appellation } : {}),
@@ -584,7 +815,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
 
           {/* Section 1 : Identité */}
           <div className="space-y-4">
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <label className="text-[10px] font-bold text-stone-400 uppercase ml-3 flex items-center gap-2">
                 Domaine / Cuvée
                 {ocrLoading && <Loader2 size={10} className="animate-spin text-bordeaux" />}
@@ -594,8 +825,43 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
                 className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-bordeaux/10 focus:bg-white outline-none transition-all"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder={ocrLoading ? "Analyse en cours..." : "Ex: Château Lynch-Bages"}
               />
+              {/* Dropdown auto-complétion */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white rounded-2xl shadow-lg border border-stone-100 overflow-hidden top-full">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        const country = mapCountry(s.country)
+                        const region = mapRegion(country, s.province)
+                        const appellation = mapAppellation(region, s.region_1)
+                        setForm(f => ({
+                          ...f,
+                          name: s.winery,
+                          country,
+                          region,
+                          appellation,
+                          grapes: s.variety || f.grapes,
+                        }))
+                        setSuggestions([])
+                        setShowSuggestions(false)
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-stone-50 transition-colors border-b border-stone-50 last:border-0 active:bg-stone-100"
+                    >
+                      <p className="font-semibold text-sm text-stone-800 truncate">{s.winery}</p>
+                      <p className="text-[10px] text-stone-400 truncate">
+                        {[s.region_1, s.province, s.country].filter(Boolean).join(' · ')}
+                        {s.variety ? ` — ${s.variety}` : ''}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
