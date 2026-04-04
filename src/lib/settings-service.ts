@@ -90,6 +90,5 @@ async function createDefaultSettings(userId: string): Promise<void> {
 export function syncSettingsToLocalStorage(settings: UserSettings): void {
   localStorage.setItem('blinkDuration', settings.blink_duration.toString())
   localStorage.setItem('timeoutDuration', settings.timeout_duration.toString())
-  localStorage.setItem('biometricEnabled', settings.biometric_enabled.toString())
   localStorage.setItem('displayDensity', settings.display_density)
 }
