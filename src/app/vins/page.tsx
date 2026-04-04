@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Wine, Search, ArrowLeft, Loader2, ChevronRight, X } from 'lucide-react'
 
 interface WineWithContext {
@@ -31,20 +31,22 @@ const MATURITY_LABELS: Record<MaturityType, { label: string; icon: string; color
 }
 
 export default function GlobalWineList() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [winesList, setWinesList] = useState<WineWithContext[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
     cellarId: '',
     storageUnitId: '',
-    color: '',
-    maturity: '',
+    color: searchParams.get('color') || '',
+    maturity: searchParams.get('maturity') || '',
     country: '',
-    region: '',
+    region: searchParams.get('region') || '',
     appellation: '',
     search: '',
+    wineId: searchParams.get('wine_id') || '',
   })
-
-  const router = useRouter()
 
   useEffect(() => {
     fetchWinesWithContext()
@@ -179,6 +181,9 @@ export default function GlobalWineList() {
   // ---- Filtrage cumulatif ----
   const filteredWines = winesList.filter(w => {
     const wine = w.wine
+
+    // Filtre vin spécifique (par ID)
+    if (filters.wineId && wine.id !== filters.wineId) return false
 
     // Filtre cave
     if (filters.cellarId && w.cellar.id !== filters.cellarId) return false
@@ -418,7 +423,7 @@ export default function GlobalWineList() {
         {/* Bouton effacer filtres */}
         {hasActiveFilters && (
           <button
-            onClick={() => setFilters(f => ({ ...f, cellarId: '', storageUnitId: '', color: '', maturity: '', country: '', region: '', appellation: '' }))}
+            onClick={() => setFilters({ cellarId: '', storageUnitId: '', color: '', maturity: '', country: '', region: '', appellation: '', search: '', wineId: '' })}
             className="flex items-center gap-2 text-stone-600 hover:text-stone-800 transition-colors text-sm font-medium"
           >
             <X size={16} /> Effacer les filtres

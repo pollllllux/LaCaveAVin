@@ -82,17 +82,20 @@ export default function StatsPage() {
         </div>
 
         {/* Alerte Apogée */}
-        <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center gap-6">
+        <button
+          onClick={() => router.push('/vins?maturity=ready')}
+          className="w-full bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center gap-6 hover:shadow-md hover:border-bordeaux/30 transition-all active:scale-[0.98]"
+        >
           <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
             <BarChart3 size={28} />
           </div>
-          <div>
+          <div className="text-left">
             <h3 className="font-bold text-stone-800 leading-tight">Prêt à déguster</h3>
             <p className="text-xs text-stone-400 mt-1">
               <span className="text-amber-600 font-bold">{readyToDrink}</span> vins arrivent à apogée en {currentYear} ou {currentYear+1}.
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Barre de répartition couleurs */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
@@ -106,9 +109,24 @@ export default function StatsPage() {
             <div style={{ width: `${rosePercent}%` }} className="bg-rose-400" title="Rosés"></div>
           </div>
           <div className="flex gap-4 text-[9px] font-bold uppercase text-stone-400">
-            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-bordeaux"></div> {redPercent}% Rouges</div>
-            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-400"></div> {whitePercent}% Blancs</div>
-            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-400"></div> {rosePercent}% Rosés</div>
+            <button
+              onClick={() => router.push('/vins?color=red')}
+              className="flex items-center gap-1 hover:text-bordeaux transition-colors active:scale-95"
+            >
+              <div className="w-2 h-2 rounded-full bg-bordeaux"></div> {redPercent}% Rouges
+            </button>
+            <button
+              onClick={() => router.push('/vins?color=white')}
+              className="flex items-center gap-1 hover:text-amber-600 transition-colors active:scale-95"
+            >
+              <div className="w-2 h-2 rounded-full bg-amber-400"></div> {whitePercent}% Blancs
+            </button>
+            <button
+              onClick={() => router.push('/vins?color=rose')}
+              className="flex items-center gap-1 hover:text-rose-600 transition-colors active:scale-95"
+            >
+              <div className="w-2 h-2 rounded-full bg-rose-400"></div> {rosePercent}% Rosés
+            </button>
           </div>
         </div>
 
@@ -128,6 +146,7 @@ export default function StatsPage() {
           items={byRegion}
           total={total}
           emptyMsg="Aucune région renseignée"
+          onItemClick={(region) => router.push(`/vins?region=${encodeURIComponent(region)}`)}
         />
 
         {/* Valeur totale de la cave */}
@@ -146,7 +165,10 @@ export default function StatsPage() {
 
         {/* Bouteille la plus chère */}
         {mostExpensive && (
-          <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-3">
+          <button
+            onClick={() => router.push(`/vins?wine_id=${mostExpensive.id}`)}
+            className="w-full bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-300/50 transition-all active:scale-[0.98] text-left"
+          >
             <div className="flex items-center gap-2 text-stone-700">
               <span className="text-amber-500"><Wine size={18} /></span>
               <h3 className="text-sm font-bold uppercase tracking-widest">Bouteille la plus chère</h3>
@@ -167,7 +189,7 @@ export default function StatsPage() {
                 <p className="text-lg font-serif font-bold text-emerald-600 mt-1">{formatPrice(mostExpensive.price)}</p>
               </div>
             </div>
-          </div>
+          </button>
         )}
 
       </div>
@@ -185,13 +207,14 @@ function StatCard({ label, value, color }: { label: string; value: number; color
 }
 
 function BreakdownCard({
-  title, icon, items, total, emptyMsg
+  title, icon, items, total, emptyMsg, onItemClick
 }: {
   title: string
   icon: React.ReactNode
   items: { label: string; count: number }[]
   total: number
   emptyMsg: string
+  onItemClick?: (label: string) => void
 }) {
   return (
     <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
@@ -205,8 +228,8 @@ function BreakdownCard({
         <div className="space-y-3">
           {items.map(({ label, count }) => {
             const pct = total > 0 ? Math.round((count / total) * 100) : 0
-            return (
-              <div key={label}>
+            const content = (
+              <>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="font-medium text-stone-700 truncate max-w-[60%]">{label}</span>
                   <span className="text-stone-400 font-bold shrink-0">{count} · {pct}%</span>
@@ -217,6 +240,20 @@ function BreakdownCard({
                     style={{ width: `${pct}%` }}
                   />
                 </div>
+              </>
+            )
+
+            return onItemClick ? (
+              <button
+                key={label}
+                onClick={() => onItemClick(label)}
+                className="w-full text-left hover:opacity-70 transition-opacity active:scale-[0.98]"
+              >
+                {content}
+              </button>
+            ) : (
+              <div key={label}>
+                {content}
               </div>
             )
           })}
