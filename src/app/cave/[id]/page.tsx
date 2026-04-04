@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
   ArrowLeft, Plus, Wine, Loader2, Trash2,
@@ -14,15 +14,20 @@ import ConsumeModal from '@/components/ConsumeModal'
 export default function CellarDetailPage() {
   const { id } = useParams()
   const router = useRouter()
-  
+  const searchParams = useSearchParams()
+
+  // Lire le paramètre unitIndex depuis la query string
+  const unitParam = searchParams.get('unit')
+  const initialUnitIndex = unitParam ? parseInt(unitParam) : 0
+
   // -- État des données --
   const [cellar, setCellar] = useState<any>(null)
   const [bottles, setBottles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  
+
   // -- État de la navigation (Spec 9) --
-  const [viewMode, setViewMode] = useState<'overview' | 'management'>('overview')
-  const [activeUnitIndex, setActiveUnitIndex] = useState(0)
+  const [viewMode, setViewMode] = useState<'overview' | 'management'>(unitParam ? 'management' : 'overview')
+  const [activeUnitIndex, setActiveUnitIndex] = useState(initialUnitIndex)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   // -- État des Modals --
@@ -45,7 +50,7 @@ export default function CellarDetailPage() {
     if (viewMode === 'management' && cellar) {
       fetchBottles()
     }
-  }, [activeUnitIndex, viewMode])
+  }, [activeUnitIndex, viewMode, cellar?.id])
 
   async function fetchData() {
     setLoading(true)

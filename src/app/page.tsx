@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Plus, Wine, LayoutGrid, Trash2, Loader2, Settings2, LogOut } from 'lucide-react'
+import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut, ChevronDown } from 'lucide-react'
 
 export default function HomePage() {
   const [cellars, setCellars] = useState<any[]>([])
@@ -13,6 +13,9 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [expandedCellar, setExpandedCellar] = useState<string | null>(null)
+  const [showAddUnitModal, setShowAddUnitModal] = useState<string | null>(null)
+  const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
   const router = useRouter()
   const maxCellarsReached = cellars.length >= 3
 
@@ -110,10 +113,33 @@ export default function HomePage() {
     await fetchCellars()
   }
 
+  const handleAddUnit = async (cellarId: string) => {
+    if (!newUnit.name) {
+      alert('Donne un nom au casier.')
+      return
+    }
+
+    const { error } = await supabase.from('storage_units').insert([{
+      name: newUnit.name,
+      cellar_id: cellarId,
+      width: newUnit.width,
+      height: newUnit.height
+    }])
+
+    if (error) {
+      console.error('Erreur création casier:', error.message)
+      return
+    }
+
+    setNewUnit({ name: '', width: 6, height: 4 })
+    setShowAddUnitModal(null)
+    await fetchCellars()
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 p-6 pb-24">
-      <div className="max-w-md mx-auto space-y-8">
-        
+      <div className="max-w-md mx-auto space-y-6">
+
         {/* Header */}
         <header className="flex justify-between items-end">
           <div>
@@ -138,36 +164,79 @@ export default function HomePage() {
           </div>
         </header>
         {maxCellarsReached && (
-          <p className="text-xs text-red-500 uppercase tracking-[0.2em] font-bold mt-2">Limite de 3 caves atteinte. Supprimez une cave pour en ajouter une autre.</p>
+          <p className="text-xs text-red-500 uppercase tracking-[0.2em] font-bold">Limite de 3 caves atteinte. Supprimez une cave pour en ajouter une autre.</p>
         )}
 
-        {/* Liste des Caves */}
-        <div className="grid gap-4">
-          {cellars.length > 0 ? cellars.map((cellar) => (
-            <div 
-              key={cellar.id}
-              onClick={() => router.push(`/cave/${cellar.id}`)}
-              className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 flex justify-between items-center group cursor-pointer active:bg-stone-50 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-stone-50 rounded-2xl text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-colors">
-                  <LayoutGrid size={24} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-stone-800 text-lg">{cellar.name}</h3>
-                  <p className="text-[10px] text-stone-400 uppercase font-bold">
-                    {cellar.storage_units?.[0]?.width}x{cellar.storage_units?.[0]?.height} • {cellar.storage_units?.[0]?.name}
-                  </p>
-                </div>
+        {/* Accordéons des Caves */}
+        <div className="space-y-3">
+          {cellars.length > 0 ? cellars.map((cellar) => {
+            const isExpanded = expandedCellar === cellar.id
+            const storageUnits = cellar.storage_units || []
+
+            return (
+              <div key={cellar.id} className="bg-white rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden">
+
+                {/* En-tête accordéon */}
+                <button
+                  onClick={() => setExpandedCellar(isExpanded ? null : cellar.id)}
+                  className="w-full p-6 flex justify-between items-center hover:bg-stone-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-4 text-left">
+                    <div className="p-3 bg-stone-50 rounded-2xl text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-colors">
+                      <LayoutGrid size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-800 text-lg">{cellar.name}</h3>
+                      <p className="text-[10px] text-stone-400 uppercase font-bold">
+                        {storageUnits.length} casier{storageUnits.length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {e.stopPropagation(); setShowAddUnitModal(cellar.id)}}
+                      className="p-2 text-stone-200 hover:text-bordeaux hover:bg-stone-100 rounded-lg transition-colors"
+                      title="Ajouter un casier"
+                    >
+                      <Plus size={18} />
+                    </button>
+                    <button
+                      onClick={(e) => deleteCellar(cellar.id, e)}
+                      className="p-2 text-stone-200 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <ChevronDown
+                      size={20}
+                      className={`text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </div>
+                </button>
+
+                {/* Contenu accordéon - Casiers */}
+                {isExpanded && (
+                  <div className="border-t border-stone-100 px-6 py-4 bg-stone-50 space-y-2">
+                    {storageUnits.length > 0 ? (
+                      storageUnits.map((unit, unitIndex) => (
+                        <button
+                          key={unit.id}
+                          onClick={() => router.push(`/cave/${cellar.id}?unit=${unitIndex}`)}
+                          className="w-full p-4 bg-white rounded-xl border border-stone-200 text-left hover:border-bordeaux hover:shadow-md transition-all active:scale-[0.98]"
+                        >
+                          <p className="font-semibold text-stone-800 text-sm">{unit.name}</p>
+                          <p className="text-[10px] text-stone-400 mt-1">
+                            {unit.width}×{unit.height} • Cliquez pour voir la grille
+                          </p>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-center text-stone-400 italic py-4">Aucun casier dans cette cave.</p>
+                    )}
+                  </div>
+                )}
               </div>
-              <button 
-                onClick={(e) => deleteCellar(cellar.id, e)}
-                className="p-2 text-stone-200 hover:text-red-400 transition-colors"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          )) : (
+            )
+          }) : (
             <div className="text-center py-20 border-2 border-dashed border-stone-200 rounded-[2rem]">
               <Wine className="mx-auto text-stone-200 mb-4" size={48} />
               <p className="text-stone-400 italic">Aucune cave enregistrée.</p>
@@ -176,16 +245,74 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* MODAL DE CRÉATION (Spec 9) */}
+      {/* MODAL D'AJOUT DE CASIER */}
+      {showAddUnitModal && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
+            <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Nouveau Casier</h2>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nom du casier</label>
+                <input
+                  autoFocus
+                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-bordeaux/20"
+                  placeholder="Ex: Casier 1..."
+                  value={newUnit.name}
+                  onChange={e => setNewUnit({...newUnit, name: e.target.value})}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Colonnes (X)</label>
+                  <input
+                    type="number"
+                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
+                    value={newUnit.width}
+                    onChange={e => setNewUnit({...newUnit, width: parseInt(e.target.value) || 1})}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Rangées (Y)</label>
+                  <input
+                    type="number"
+                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
+                    value={newUnit.height}
+                    onChange={e => setNewUnit({...newUnit, height: parseInt(e.target.value) || 1})}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {setShowAddUnitModal(null); setNewUnit({name: '', width: 6, height: 4})}}
+                className="flex-1 py-4 text-stone-400 font-bold"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleAddUnit(showAddUnitModal)}
+                className="flex-1 py-4 bg-bordeaux text-white font-bold rounded-2xl hover:bg-stone-800 active:scale-95 transition-all"
+              >
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CRÉATION DE CAVE */}
       {showModal && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
             <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Nouvel Espace</h2>
-            
+
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nom de la cave</label>
-                <input 
+                <input
                   autoFocus
                   className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-bordeaux/20"
                   placeholder="Ex: Cave Salon, Garage..."
@@ -208,7 +335,7 @@ export default function HomePage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nombre de casiers</label>
-                  <input 
+                  <input
                     type="number"
                     min={1}
                     max={5}
@@ -222,7 +349,7 @@ export default function HomePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Colonnes (X)</label>
-                  <input 
+                  <input
                     type="number"
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newCellar.width}
@@ -231,7 +358,7 @@ export default function HomePage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Rangées (Y)</label>
-                  <input 
+                  <input
                     type="number"
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newCellar.height}
@@ -242,18 +369,18 @@ export default function HomePage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="flex-1 py-4 text-stone-400 font-bold"
               >
                 Annuler
               </button>
-              <button 
+              <button
                 onClick={handleCreateCellar}
                 disabled={creating}
-                className={`flex-1 py-4 rounded-2xl font-bold shadow-lg shadow-bordeaux/20 active:scale-95 transition-all ${creating ? 'bg-stone-300 text-stone-400 cursor-not-allowed' : 'bg-bordeaux text-white'}`}
+                className="flex-1 py-4 bg-bordeaux text-white font-bold rounded-2xl hover:bg-stone-800 active:scale-95 transition-all disabled:opacity-60"
               >
-                {creating ? 'Création...' : 'Créer'}
+                {creating ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Créer'}
               </button>
             </div>
           </div>
@@ -262,4 +389,3 @@ export default function HomePage() {
     </div>
   )
 }
-
