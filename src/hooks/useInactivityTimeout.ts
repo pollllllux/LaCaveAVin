@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const INACTIVITY_TIME = 5 * 60 * 1000 // 5 minutes
-const WARNING_TIME = 4 * 60 * 1000 // 4 minutes (warning 1 min avant)
+const DEFAULT_TIMEOUT = 5 // minutes
+const WARNING_OFFSET = 1 * 60 * 1000 // 1 minute before timeout
 
 export function useInactivityTimeout() {
   const router = useRouter()
@@ -25,15 +25,21 @@ export function useInactivityTimeout() {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     if (warningTimer.current) clearTimeout(warningTimer.current)
 
-    // Timer d'avertissement : déclenché après 9 minutes
+    // Get timeout duration from localStorage (default 5 minutes)
+    const savedTimeout = localStorage.getItem('timeoutDuration')
+    const timeoutMinutes = savedTimeout ? parseInt(savedTimeout) : DEFAULT_TIMEOUT
+    const inactivityTime = timeoutMinutes * 60 * 1000
+    const warningTime = inactivityTime - WARNING_OFFSET
+
+    // Timer d'avertissement : déclenché 1 minute avant le timeout
     warningTimer.current = setTimeout(() => {
       setShowWarning(true)
-    }, WARNING_TIME)
+    }, warningTime)
 
-    // Timer de logout : déclenché après 10 minutes
+    // Timer de logout : déclenché après la durée configurée
     inactivityTimer.current = setTimeout(() => {
       logout()
-    }, INACTIVITY_TIME)
+    }, inactivityTime)
   }
 
   const handleStayConnected = () => {

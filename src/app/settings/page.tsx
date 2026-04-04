@@ -4,25 +4,46 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 
-const STORAGE_KEY = 'blinkDuration'
-const DEFAULT_DURATION = 15
+const BLINK_DURATION_KEY = 'blinkDuration'
+const TIMEOUT_DURATION_KEY = 'timeoutDuration'
+const BIOMETRIC_KEY = 'biometricEnabled'
+const DENSITY_KEY = 'displayDensity'
+
+const DEFAULT_BLINK = 15
+const DEFAULT_TIMEOUT = 5
+const DEFAULT_BIOMETRIC = false
+const DEFAULT_DENSITY = 'normal'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [duration, setDuration] = useState(DEFAULT_DURATION)
+  const [blinkDuration, setBlinkDuration] = useState(DEFAULT_BLINK)
+  const [timeoutDuration, setTimeoutDuration] = useState(DEFAULT_TIMEOUT)
+  const [biometricEnabled, setBiometricEnabled] = useState(DEFAULT_BIOMETRIC)
+  const [displayDensity, setDisplayDensity] = useState<'compact' | 'normal' | 'spacious'>(DEFAULT_DENSITY as any)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    // Load duration from localStorage
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      setDuration(parseInt(saved))
-    }
+    // Load settings from localStorage
+    const savedBlink = localStorage.getItem(BLINK_DURATION_KEY)
+    if (savedBlink) setBlinkDuration(parseInt(savedBlink))
+
+    const savedTimeout = localStorage.getItem(TIMEOUT_DURATION_KEY)
+    if (savedTimeout) setTimeoutDuration(parseInt(savedTimeout))
+
+    const savedBiometric = localStorage.getItem(BIOMETRIC_KEY)
+    if (savedBiometric) setBiometricEnabled(savedBiometric === 'true')
+
+    const savedDensity = localStorage.getItem(DENSITY_KEY)
+    if (savedDensity) setDisplayDensity(savedDensity as any)
+
     setIsMounted(true)
   }, [])
 
   const handleSave = () => {
-    localStorage.setItem(STORAGE_KEY, duration.toString())
+    localStorage.setItem(BLINK_DURATION_KEY, blinkDuration.toString())
+    localStorage.setItem(TIMEOUT_DURATION_KEY, timeoutDuration.toString())
+    localStorage.setItem(BIOMETRIC_KEY, biometricEnabled.toString())
+    localStorage.setItem(DENSITY_KEY, displayDensity)
   }
 
   if (!isMounted) return null
@@ -45,56 +66,111 @@ export default function SettingsPage() {
         </div>
 
         {/* Settings */}
-        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-6">
-          <div className="space-y-4">
+        <div className="space-y-4">
+          {/* 1. Clignotement */}
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
             <div>
-              <label className="text-sm font-bold text-stone-700 block mb-2">
-                Durée de clignotement des vins sélectionnés
+              <label className="text-sm font-bold text-stone-700 block">
+                ⏱️ Durée de clignotement
               </label>
-              <p className="text-xs text-stone-400 mb-4">
-                Définissez combien de temps les bouteilles doivent clignoter quand vous les sélectionnez depuis la page "Mes Bouteilles".
+              <p className="text-xs text-stone-400 mb-3">
+                Durée du clignotement des bouteilles sélectionnées (5-30s)
               </p>
             </div>
-
-            {/* Slider */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <input
-                  type="range"
-                  min="5"
-                  max="30"
-                  value={duration}
-                  onChange={(e) => setDuration(parseInt(e.target.value))}
-                  className="flex-1 h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-bordeaux"
-                />
-              </div>
-
-              {/* Value display */}
-              <div className="flex items-center justify-between bg-stone-50 rounded-2xl p-4">
-                <span className="text-sm text-stone-600">Valeur actuelle:</span>
-                <span className="text-2xl font-bold text-bordeaux">{duration}s</span>
-              </div>
-
-              {/* Quick buttons */}
-              <div className="grid grid-cols-3 gap-2">
-                {[5, 15, 30].map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => setDuration(val)}
-                    className={`py-2 rounded-xl font-bold text-sm transition-all ${
-                      duration === val
-                        ? 'bg-bordeaux text-white shadow-md'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    {val}s
-                  </button>
-                ))}
+              <input
+                type="range"
+                min="5"
+                max="30"
+                value={blinkDuration}
+                onChange={(e) => setBlinkDuration(parseInt(e.target.value))}
+                className="w-full h-2 bg-stone-200 rounded-lg accent-bordeaux"
+              />
+              <div className="flex items-center justify-between bg-stone-50 rounded-2xl p-3">
+                <span className="text-xs text-stone-600">Actuel:</span>
+                <span className="text-lg font-bold text-bordeaux">{blinkDuration}s</span>
               </div>
             </div>
           </div>
 
-          {/* Save button */}
+          {/* 2. Timeout d'inactivité */}
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
+            <div>
+              <label className="text-sm font-bold text-stone-700 block">
+                🔒 Timeout d'inactivité
+              </label>
+              <p className="text-xs text-stone-400 mb-3">
+                Déconnexion automatique après inactivité (2-10 min)
+              </p>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="range"
+                min="2"
+                max="10"
+                value={timeoutDuration}
+                onChange={(e) => setTimeoutDuration(parseInt(e.target.value))}
+                className="w-full h-2 bg-stone-200 rounded-lg accent-bordeaux"
+              />
+              <div className="flex items-center justify-between bg-stone-50 rounded-2xl p-3">
+                <span className="text-xs text-stone-600">Actuel:</span>
+                <span className="text-lg font-bold text-bordeaux">{timeoutDuration} min</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Authentification biométrique */}
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
+            <div>
+              <label className="text-sm font-bold text-stone-700 block">
+                👆 Authentification biométrique
+              </label>
+              <p className="text-xs text-stone-400 mb-3">
+                Déverrouiller avec empreinte/visage
+              </p>
+            </div>
+            <button
+              onClick={() => setBiometricEnabled(!biometricEnabled)}
+              className={`w-full py-3 rounded-2xl font-bold transition-all ${
+                biometricEnabled
+                  ? 'bg-green-100 text-green-700 border-2 border-green-300'
+                  : 'bg-stone-100 text-stone-600'
+              }`}
+            >
+              {biometricEnabled ? '✓ Activée' : 'Désactivée'}
+            </button>
+          </div>
+
+          {/* 4. Densité d'affichage */}
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
+            <div>
+              <label className="text-sm font-bold text-stone-700 block">
+                📊 Densité d'affichage
+              </label>
+              <p className="text-xs text-stone-400 mb-3">
+                Compacte, normale ou spacieuse
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {(['compact', 'normal', 'spacious'] as const).map((density) => (
+                <button
+                  key={density}
+                  onClick={() => setDisplayDensity(density)}
+                  className={`py-3 rounded-xl font-bold text-xs transition-all ${
+                    displayDensity === density
+                      ? 'bg-bordeaux text-white shadow-md'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  {density === 'compact' ? '📦' : density === 'normal' ? '📄' : '📖'} {density === 'compact' ? 'Compact' : density === 'normal' ? 'Normal' : 'Spacieux'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100">
           <button
             onClick={() => {
               handleSave()
@@ -102,16 +178,8 @@ export default function SettingsPage() {
             }}
             className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 active:scale-95 transition-all"
           >
-            Enregistrer
+            Enregistrer tous les paramètres
           </button>
-        </div>
-
-        {/* Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800">
-          <p className="font-semibold mb-1">ℹ️ À savoir</p>
-          <p className="text-xs text-blue-700">
-            Quand vous cliquez sur un millésime depuis "Mes Bouteilles", les bouteilles de ce vin clignotent pour {duration} secondes dans la vue casier.
-          </p>
         </div>
       </div>
     </div>

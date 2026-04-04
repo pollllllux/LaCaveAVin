@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut, ChevronDown } from 'lucide-react'
+import { useDisplayDensity } from '@/hooks/useDisplayDensity'
 
 export default function HomePage() {
+  const { spacing } = useDisplayDensity()
   const [cellars, setCellars] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -138,7 +140,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-stone-50 p-6 pb-24">
-      <div className="max-w-md mx-auto space-y-6">
+      <div className={`max-w-md mx-auto ${spacing.sectionGap}`}>
 
         {/* Header */}
         <header className="flex justify-between items-end">
@@ -168,7 +170,7 @@ export default function HomePage() {
         )}
 
         {/* Accordéons des Caves */}
-        <div className="space-y-3">
+        <div className={`${spacing.cardGap}`}>
           {cellars.length > 0 ? cellars.map((cellar) => {
             const isExpanded = expandedCellar === cellar.id
             const storageUnits = cellar.storage_units || []
@@ -179,7 +181,7 @@ export default function HomePage() {
                 {/* En-tête accordéon */}
                 <button
                   onClick={() => setExpandedCellar(isExpanded ? null : cellar.id)}
-                  className="w-full p-6 flex justify-between items-center hover:bg-stone-50 transition-colors group"
+                  className={`w-full ${spacing.cardPadding} flex justify-between items-center hover:bg-stone-50 transition-colors group`}
                 >
                   <div className="flex items-center gap-4 text-left">
                     <div className="p-3 bg-stone-50 rounded-2xl text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-colors">

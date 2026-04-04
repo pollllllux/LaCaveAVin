@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Wine, Search, ArrowLeft, Loader2, ChevronRight, X } from 'lucide-react'
 import { capitalize } from '@/lib/format'
+import { useDisplayDensity } from '@/hooks/useDisplayDensity'
 
 interface WineWithContext {
   wine: any
@@ -35,6 +36,7 @@ const MATURITY_LABELS: Record<MaturityType, { label: string; icon: string; color
 function GlobalWineListContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { spacing } = useDisplayDensity()
 
   const [winesList, setWinesList] = useState<WineWithContext[]>([])
   const [loading, setLoading] = useState(true)
@@ -268,7 +270,7 @@ function GlobalWineListContent() {
   return (
     <div className="min-h-screen bg-stone-50 p-6">
       {/* Header */}
-      <header className="max-w-2xl mx-auto space-y-4 mb-6">
+      <header className={`max-w-2xl mx-auto space-y-4 mb-6`}>
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/')}
@@ -293,7 +295,7 @@ function GlobalWineListContent() {
       </header>
 
       {/* Filtres */}
-      <div className="max-w-2xl mx-auto space-y-4 mb-6">
+      <div className={`max-w-2xl mx-auto ${spacing.sectionGap} mb-6`}>
         {/* Caves */}
         <div>
           <label className="block text-[10px] font-bold text-stone-400 uppercase mb-2">🏠 Caves</label>
@@ -489,7 +491,7 @@ function GlobalWineListContent() {
           })
 
           return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${spacing.cardGap}`}>
               {Array.from(wineGroups.values()).map((group, idx) => {
                 const wine = group.wine
                 const colorBg =
@@ -498,14 +500,14 @@ function GlobalWineListContent() {
                 return (
                   <div key={`${wine.name}|${idx}`} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col h-64">
                     {/* En-tête avec couleur */}
-                    <div className="flex items-start justify-between p-4 border-b border-stone-100 shrink-0">
+                    <div className={`flex items-start justify-between ${spacing.cardPadding} border-b border-stone-100 shrink-0`}>
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${colorBg}`}>
                         <Wine size={20} />
                       </div>
                     </div>
 
                     {/* Contenu avec scrollable vintages */}
-                    <div className="p-4 space-y-3 flex flex-col min-h-0 flex-1">
+                    <div className={`${spacing.cardPadding} space-y-3 flex flex-col min-h-0 flex-1`}>
                       <h3 className="font-bold text-stone-800">{capitalize(wine.name)}</h3>
 
                       {/* Vintages list with scrollbar if needed */}
