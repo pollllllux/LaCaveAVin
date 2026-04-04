@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const INACTIVITY_TIME = 2 * 60 * 1000 // 2 minutes (pour test)
-const WARNING_TIME = 1 * 60 * 1000 // 1 minute (warning avant 1 min)
+const INACTIVITY_TIME = 5 * 60 * 1000 // 5 minutes
+const WARNING_TIME = 4 * 60 * 1000 // 4 minutes (warning 1 min avant)
 
 export function useInactivityTimeout() {
   const router = useRouter()
