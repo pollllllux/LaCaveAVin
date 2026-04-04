@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -31,7 +32,7 @@ const MATURITY_LABELS: Record<MaturityType, { label: string; icon: string; color
   unknown: { label: 'Inconnu', icon: '❓', color: 'bg-stone-50 text-stone-500 border-stone-200' },
 }
 
-export default function GlobalWineList() {
+function GlobalWineListContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -523,5 +524,21 @@ export default function GlobalWineList() {
       </div>
 
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="h-screen flex items-center justify-center text-bordeaux italic">
+      <Loader2 className="animate-spin mr-2" /> Lecture du grand livre...
+    </div>
+  )
+}
+
+export default function GlobalWineList() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <GlobalWineListContent />
+    </Suspense>
   )
 }
