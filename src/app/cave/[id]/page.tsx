@@ -11,6 +11,7 @@ import {
 import WineForm from '@/components/WineForm'
 import ConsumeModal from '@/components/ConsumeModal'
 import { capitalize } from '@/lib/format'
+import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 export default function CellarDetailPage() {
   const { id } = useParams()
@@ -49,6 +50,11 @@ export default function CellarDetailPage() {
     // Detect if device supports hover (PC) or not (mobile)
     const hasHover = window.matchMedia('(hover: hover)').matches
     setIsHoverDevice(hasHover)
+
+    // Load settings from DB on mount
+    fetchUserSettings().then(settings => {
+      syncSettingsToLocalStorage(settings)
+    })
   }, [])
 
   // Formulaire pour nouveau casier (Spec 8)

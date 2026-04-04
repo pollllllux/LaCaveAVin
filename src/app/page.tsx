@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut, ChevronDown } from 'lucide-react'
 import { useDisplayDensity } from '@/hooks/useDisplayDensity'
+import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 export default function HomePage() {
   const { spacing } = useDisplayDensity()
@@ -23,6 +24,11 @@ export default function HomePage() {
 
   useEffect(() => {
     checkAuth()
+
+    // Load settings from DB on mount
+    fetchUserSettings().then(settings => {
+      syncSettingsToLocalStorage(settings)
+    })
   }, [])
 
   async function checkAuth() {

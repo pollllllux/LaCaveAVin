@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Wine, Search, ArrowLeft, Loader2, ChevronRight, X } from 'lucide-react'
 import { capitalize } from '@/lib/format'
 import { useDisplayDensity } from '@/hooks/useDisplayDensity'
+import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 interface WineWithContext {
   wine: any
@@ -55,6 +56,11 @@ function GlobalWineListContent() {
   const [selectingCellar, setSelectingCellar] = useState<{ wine: any; vintage: number; cellars: Array<{ id: string; name: string }> } | null>(null)
 
   useEffect(() => {
+    // Load settings from DB on mount
+    fetchUserSettings().then(settings => {
+      syncSettingsToLocalStorage(settings)
+    })
+
     fetchWinesWithContext()
   }, [])
 

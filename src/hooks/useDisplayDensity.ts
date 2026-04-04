@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 type DisplayDensity = 'compact' | 'normal' | 'spacious'
 
@@ -6,10 +7,13 @@ export function useDisplayDensity() {
   const [density, setDensity] = useState<DisplayDensity>('normal')
 
   useEffect(() => {
-    const savedDensity = localStorage.getItem('displayDensity') as DisplayDensity | null
-    if (savedDensity) {
-      setDensity(savedDensity)
+    const loadDensity = async () => {
+      // Try to load from DB first
+      const settings = await fetchUserSettings()
+      setDensity(settings.display_density)
+      syncSettingsToLocalStorage(settings)
     }
+    loadDensity()
   }, [])
 
   const getDensityClass = () => {

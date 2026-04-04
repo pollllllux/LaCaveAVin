@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 const DEFAULT_TIMEOUT = 5 // minutes
 const WARNING_OFFSET = 1 * 60 * 1000 // 1 minute before timeout
@@ -9,6 +10,7 @@ export function useInactivityTimeout() {
   const router = useRouter()
   const [showWarning, setShowWarning] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [timeoutMinutes, setTimeoutMinutes] = useState(DEFAULT_TIMEOUT)
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null)
   const warningTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -25,9 +27,7 @@ export function useInactivityTimeout() {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     if (warningTimer.current) clearTimeout(warningTimer.current)
 
-    // Get timeout duration from localStorage (default 5 minutes)
-    const savedTimeout = localStorage.getItem('timeoutDuration')
-    const timeoutMinutes = savedTimeout ? parseInt(savedTimeout) : DEFAULT_TIMEOUT
+    // Use state timeout duration
     const inactivityTime = timeoutMinutes * 60 * 1000
     const warningTime = inactivityTime - WARNING_OFFSET
 
@@ -46,11 +46,18 @@ export function useInactivityTimeout() {
     resetTimers()
   }
 
-  // Vérifier l'authentification au montage
+  // Vérifier l'authentification au montage et charger les settings
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setIsAuthenticated(!!user)
+
+      if (user) {
+        // Load timeout setting from DB
+        const settings = await fetchUserSettings()
+        setTimeoutMinutes(settings.timeout_duration)
+        syncSettingsToLocalStorage(settings)
+      }
     }
 
     checkAuth()
@@ -89,7 +96,7 @@ export function useInactivityTimeout() {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
       if (warningTimer.current) clearTimeout(warningTimer.current)
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, timeoutMinutes])
 
   return { showWarning, handleStayConnected }
 }

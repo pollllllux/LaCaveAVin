@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
-
-const BLINK_DURATION_KEY = 'blinkDuration'
-const TIMEOUT_DURATION_KEY = 'timeoutDuration'
-const BIOMETRIC_KEY = 'biometricEnabled'
-const DENSITY_KEY = 'displayDensity'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { fetchUserSettings, saveUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 const DEFAULT_BLINK = 15
 const DEFAULT_TIMEOUT = 5
@@ -21,29 +17,41 @@ export default function SettingsPage() {
   const [biometricEnabled, setBiometricEnabled] = useState(DEFAULT_BIOMETRIC)
   const [displayDensity, setDisplayDensity] = useState<'compact' | 'normal' | 'spacious'>(DEFAULT_DENSITY as any)
   const [isMounted, setIsMounted] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Load settings from localStorage
-    const savedBlink = localStorage.getItem(BLINK_DURATION_KEY)
-    if (savedBlink) setBlinkDuration(parseInt(savedBlink))
-
-    const savedTimeout = localStorage.getItem(TIMEOUT_DURATION_KEY)
-    if (savedTimeout) setTimeoutDuration(parseInt(savedTimeout))
-
-    const savedBiometric = localStorage.getItem(BIOMETRIC_KEY)
-    if (savedBiometric) setBiometricEnabled(savedBiometric === 'true')
-
-    const savedDensity = localStorage.getItem(DENSITY_KEY)
-    if (savedDensity) setDisplayDensity(savedDensity as any)
-
-    setIsMounted(true)
+    // Load settings from database
+    const loadSettings = async () => {
+      const settings = await fetchUserSettings()
+      setBlinkDuration(settings.blink_duration)
+      setTimeoutDuration(settings.timeout_duration)
+      setBiometricEnabled(settings.biometric_enabled)
+      setDisplayDensity(settings.display_density)
+      setIsMounted(true)
+    }
+    loadSettings()
   }, [])
 
-  const handleSave = () => {
-    localStorage.setItem(BLINK_DURATION_KEY, blinkDuration.toString())
-    localStorage.setItem(TIMEOUT_DURATION_KEY, timeoutDuration.toString())
-    localStorage.setItem(BIOMETRIC_KEY, biometricEnabled.toString())
-    localStorage.setItem(DENSITY_KEY, displayDensity)
+  const handleSave = async () => {
+    setLoading(true)
+    const success = await saveUserSettings({
+      blink_duration: blinkDuration,
+      timeout_duration: timeoutDuration,
+      biometric_enabled: biometricEnabled,
+      display_density: displayDensity,
+    })
+
+    if (success) {
+      // Sync to localStorage for fast access
+      syncSettingsToLocalStorage({
+        blink_duration: blinkDuration,
+        timeout_duration: timeoutDuration,
+        biometric_enabled: biometricEnabled,
+        display_density: displayDensity,
+      })
+      router.push('/menu')
+    }
+    setLoading(false)
   }
 
   if (!isMounted) return null
@@ -172,13 +180,12 @@ export default function SettingsPage() {
         {/* Save button */}
         <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100">
           <button
-            onClick={() => {
-              handleSave()
-              router.push('/menu')
-            }}
-            className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 active:scale-95 transition-all"
+            onClick={handleSave}
+            disabled={loading}
+            className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            Enregistrer tous les paramètres
+            {loading ? <Loader2 className="animate-spin" size={20} /> : null}
+            {loading ? 'Enregistrement...' : 'Enregistrer tous les paramètres'}
           </button>
         </div>
       </div>
