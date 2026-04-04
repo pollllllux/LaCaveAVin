@@ -504,7 +504,7 @@ function GlobalWineListContent() {
                   wine.color === 'red' ? 'bg-bordeaux/10 text-bordeaux' : wine.color === 'white' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-500'
 
                 return (
-                  <div key={`${wine.name}|${idx}`} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col h-64">
+                  <div key={`${wine.name}|${idx}`} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col h-88">
                     {/* En-tête avec couleur */}
                     <div className={`flex items-start justify-between ${spacing.cardPadding} border-b border-stone-100 shrink-0`}>
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${colorBg}`}>
