@@ -7,14 +7,12 @@ import { fetchUserSettings, saveUserSettings, syncSettingsToLocalStorage } from 
 
 const DEFAULT_BLINK = 15
 const DEFAULT_TIMEOUT = 5
-const DEFAULT_BIOMETRIC = false
 const DEFAULT_DENSITY = 'normal'
 
 export default function SettingsPage() {
   const router = useRouter()
   const [blinkDuration, setBlinkDuration] = useState(DEFAULT_BLINK)
   const [timeoutDuration, setTimeoutDuration] = useState(DEFAULT_TIMEOUT)
-  const [biometricEnabled, setBiometricEnabled] = useState(DEFAULT_BIOMETRIC)
   const [displayDensity, setDisplayDensity] = useState<'compact' | 'normal' | 'spacious'>(DEFAULT_DENSITY as any)
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -25,7 +23,6 @@ export default function SettingsPage() {
       const settings = await fetchUserSettings()
       setBlinkDuration(settings.blink_duration)
       setTimeoutDuration(settings.timeout_duration)
-      setBiometricEnabled(settings.biometric_enabled)
       setDisplayDensity(settings.display_density)
       setIsMounted(true)
     }
@@ -37,7 +34,6 @@ export default function SettingsPage() {
     const success = await saveUserSettings({
       blink_duration: blinkDuration,
       timeout_duration: timeoutDuration,
-      biometric_enabled: biometricEnabled,
       display_density: displayDensity,
     })
 
@@ -46,7 +42,6 @@ export default function SettingsPage() {
       syncSettingsToLocalStorage({
         blink_duration: blinkDuration,
         timeout_duration: timeoutDuration,
-        biometric_enabled: biometricEnabled,
         display_density: displayDensity,
       })
       router.push('/menu')
@@ -127,29 +122,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 3. Authentification biométrique */}
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
-            <div>
-              <label className="text-sm font-bold text-stone-700 block">
-                👆 Authentification biométrique
-              </label>
-              <p className="text-xs text-stone-400 mb-3">
-                Déverrouiller avec empreinte/visage
-              </p>
-            </div>
-            <button
-              onClick={() => setBiometricEnabled(!biometricEnabled)}
-              className={`w-full py-3 rounded-2xl font-bold transition-all ${
-                biometricEnabled
-                  ? 'bg-green-100 text-green-700 border-2 border-green-300'
-                  : 'bg-stone-100 text-stone-600'
-              }`}
-            >
-              {biometricEnabled ? '✓ Activée' : 'Désactivée'}
-            </button>
-          </div>
-
-          {/* 4. Densité d'affichage */}
+          {/* 3. Densité d'affichage */}
           <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
             <div>
               <label className="text-sm font-bold text-stone-700 block">

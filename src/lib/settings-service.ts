@@ -3,14 +3,12 @@ import { supabase } from './supabase'
 export interface UserSettings {
   blink_duration: number
   timeout_duration: number
-  biometric_enabled: boolean
   display_density: 'compact' | 'normal' | 'spacious'
 }
 
 const DEFAULTS: UserSettings = {
   blink_duration: 15,
   timeout_duration: 5,
-  biometric_enabled: false,
   display_density: 'normal',
 }
 
@@ -39,7 +37,6 @@ export async function fetchUserSettings(): Promise<UserSettings> {
     return {
       blink_duration: data.blink_duration ?? DEFAULTS.blink_duration,
       timeout_duration: data.timeout_duration ?? DEFAULTS.timeout_duration,
-      biometric_enabled: data.biometric_enabled ?? DEFAULTS.biometric_enabled,
       display_density: data.display_density ?? DEFAULTS.display_density,
     }
   } catch (err) {
@@ -59,7 +56,6 @@ export async function saveUserSettings(settings: UserSettings): Promise<boolean>
         user_id: user.id,
         blink_duration: settings.blink_duration,
         timeout_duration: settings.timeout_duration,
-        biometric_enabled: settings.biometric_enabled,
         display_density: settings.display_density,
         updated_at: new Date().toISOString(),
       })
