@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Home, Wine, BarChart3, LayoutGrid, LogOut, Trash2, AlertTriangle } from 'lucide-react'
+import { Home, Wine, BarChart3, LayoutGrid, LogOut, Trash2, AlertTriangle, Settings } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useState } from 'react'
 
@@ -105,6 +105,14 @@ export default function MenuPage() {
             <div>
               <h2 className="font-bold text-stone-800">Statistiques</h2>
               <p className="text-sm text-stone-400">Analyser votre cave</p>
+            </div>
+          </Link>
+
+          <Link href="/settings" className="flex items-center gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 transition hover:-translate-y-0.5">
+            <span className="p-3 rounded-2xl bg-stone-50 text-bordeaux"><Settings size={24} /></span>
+            <div>
+              <h2 className="font-bold text-stone-800">Paramètres</h2>
+              <p className="text-sm text-stone-400">Configurer vos préférences</p>
             </div>
           </Link>
 

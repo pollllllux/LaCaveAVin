@@ -42,6 +42,7 @@ export default function CellarDetailPage() {
   const [longPressPopover, setLongPressPopover] = useState<{ wine: any; x: number; y: number } | null>(null)
   const [hoverPopover, setHoverPopover] = useState<{ wine: any; mouseX: number; mouseY: number } | null>(null)
   const [isHoverDevice, setIsHoverDevice] = useState(true)
+  const [highlightBottles, setHighlightBottles] = useState<string[]>([])
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -63,6 +64,32 @@ export default function CellarDetailPage() {
       fetchBottles()
     }
   }, [activeUnitIndex, viewMode, cellar?.id])
+
+  // Handle highlight from /vins page
+  useEffect(() => {
+    const highlight = searchParams.get('highlight')
+    if (highlight) {
+      const [wineId, vintage] = highlight.split(':')
+      // Find bottles of this wine/vintage
+      const bottlesToHighlight = bottles
+        .filter(b => b.wine_id === wineId && b.wine?.vintage === parseInt(vintage))
+        .map(b => b.id)
+
+      setHighlightBottles(bottlesToHighlight)
+
+      // Get duration from localStorage (default 15 seconds)
+      const savedDuration = localStorage.getItem('blinkDuration')
+      const durationSeconds = savedDuration ? parseInt(savedDuration) : 15
+      const durationMs = durationSeconds * 1000
+
+      // Remove highlight after user-configured duration
+      const timer = setTimeout(() => {
+        setHighlightBottles([])
+      }, durationMs)
+
+      return () => clearTimeout(timer)
+    }
+  }, [bottles, searchParams])
 
   async function fetchData() {
     setLoading(true)
@@ -465,7 +492,7 @@ async function fetchBottles() {
                           setSelectedPos({x, y})
                         }
                       }}
-                      className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm relative overflow-hidden group
+                      className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm relative overflow-hidden group ${highlightBottles.includes(bottle?.id) ? 'animate-pulse ring-4 ring-yellow-300' : ''}
                         ${wine
                           ? (wine.color === 'white' ? 'bg-amber-300 border-amber-400' : wine.color === 'rose' ? 'bg-rose-200 border-rose-300' : 'bg-bordeaux border-bordeaux text-white')
                           : isOccupied

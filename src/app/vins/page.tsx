@@ -50,9 +50,29 @@ function GlobalWineListContent() {
     wineId: searchParams.get('wine_id') || '',
   })
 
+  const [selectingCellar, setSelectingCellar] = useState<{ wine: any; vintage: number; cellars: Array<{ id: string; name: string }> } | null>(null)
+
   useEffect(() => {
     fetchWinesWithContext()
   }, [])
+
+  const handleVintageClick = async (wine: any, vintage: number) => {
+    // Find all bottles of this wine/vintage
+    const bottlesOfVintage = winesList.filter(w => w.wine.id === wine.id && w.wine.vintage === vintage)
+    const cellarsSet = new Set(bottlesOfVintage.map(b => b.cellar.id))
+    const uniqueCellars = Array.from(cellarsSet).map(cellarId => {
+      const cellar = bottlesOfVintage.find(b => b.cellar.id === cellarId)?.cellar
+      return cellar!
+    })
+
+    // If only one cellar, navigate directly
+    if (uniqueCellars.length === 1) {
+      router.push(`/cave/${uniqueCellars[0].id}?highlight=${wine.id}:${vintage}`)
+    } else {
+      // Otherwise, show modal to choose cellar
+      setSelectingCellar({ wine, vintage, cellars: uniqueCellars })
+    }
+  }
 
   async function fetchWinesWithContext() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -493,7 +513,11 @@ function GlobalWineListContent() {
                         {group.vintages.map((v, vIdx) => {
                           const matLabel = MATURITY_LABELS[v.maturity]
                           return (
-                            <div key={vIdx} className="text-sm text-stone-600 pb-2 border-b border-stone-100 last:border-b-0">
+                            <button
+                              key={vIdx}
+                              onClick={() => handleVintageClick(wine, v.vintage)}
+                              className="w-full text-sm text-stone-600 pb-2 border-b border-stone-100 last:border-b-0 hover:bg-stone-50 hover:text-stone-800 transition-colors p-2 -mx-2 rounded text-left"
+                            >
                               <p className="flex items-center justify-between gap-2">
                                 <span className="text-xs truncate flex-1">{v.vintage} • {capitalize(v.appellation || v.region || v.country)}</span>
                                 <span className="text-xs font-medium shrink-0">{matLabel.icon}</span>
@@ -501,7 +525,7 @@ function GlobalWineListContent() {
                               <p className="text-xs text-stone-500 mt-1">
                                 <span className="font-semibold text-stone-700">{v.count} bouteille{v.count > 1 ? 's' : ''}</span>
                               </p>
-                            </div>
+                            </button>
                           )
                         })}
                       </div>
@@ -523,6 +547,37 @@ function GlobalWineListContent() {
         )}
       </div>
 
+      {/* Modal pour sélectionner le casier */}
+      {selectingCellar && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
+            <h2 className="text-xl font-serif font-bold text-stone-800 italic">Quel casier?</h2>
+            <p className="text-sm text-stone-600">
+              {capitalize(selectingCellar.wine.name)} {selectingCellar.vintage} se trouve dans plusieurs casiers.
+            </p>
+            <div className="space-y-2">
+              {selectingCellar.cellars.map(cellar => (
+                <button
+                  key={cellar.id}
+                  onClick={() => {
+                    setSelectingCellar(null)
+                    router.push(`/cave/${cellar.id}?highlight=${selectingCellar.wine.id}:${selectingCellar.vintage}`)
+                  }}
+                  className="w-full py-4 bg-stone-50 hover:bg-bordeaux hover:text-white text-stone-800 rounded-2xl font-bold transition-all active:scale-95"
+                >
+                  {cellar.name}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setSelectingCellar(null)}
+              className="w-full py-2 text-stone-400 font-bold text-sm uppercase tracking-widest hover:text-stone-600 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
