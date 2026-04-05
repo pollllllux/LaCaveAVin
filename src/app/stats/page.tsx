@@ -31,20 +31,38 @@ export default function StatsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       // Récupérer les bouteilles avec leurs infos de vin
-      const { data: bottles } = await supabase
+      let query = supabase
         .from('bottles')
         .select('wine_id, status, wines(*)')
-        .eq('status', filterMode === 'cellar' ? 'in_stock' : 'consumed')
 
-      if (bottles) {
+      if (filterMode === 'cellar') {
+        // Cave: status = 'in_stock'
+        query = query.eq('status', 'in_stock')
+      } else {
+        // Historique: status != 'in_stock' (consommées ou offertes)
+        query = query.neq('status', 'in_stock')
+      }
+
+      const { data: bottles, error } = await query
+
+      if (error) {
+        console.error('Erreur fetch bottles:', error.message)
+        setLoading(false)
+        return
+      }
+
+      if (bottles && bottles.length > 0) {
         // Grouper par vin unique pour éviter les doublons
         const uniqueWines = new Map()
         for (const bottle of bottles) {
-          if (bottle.wines && !uniqueWines.has(bottle.wines.id)) {
-            uniqueWines.set(bottle.wines.id, bottle.wines)
+          const wine = Array.isArray(bottle.wines) ? bottle.wines[0] : bottle.wines
+          if (wine && !uniqueWines.has(wine.id)) {
+            uniqueWines.set(wine.id, wine)
           }
         }
         setWines(Array.from(uniqueWines.values()))
+      } else {
+        setWines([])
       }
     }
     setLoading(false)
