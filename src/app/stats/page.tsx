@@ -30,10 +30,10 @@ export default function StatsPage() {
   async function fetchStats() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      // Récupérer les bouteilles avec leurs infos de vin
+      // Récupérer les bouteilles avec leurs infos de vin ET cellars
       let query = supabase
         .from('bottles')
-        .select('wine_id, status, wines(*)')
+        .select('wine_id, status, wines(*), storage_units(cellar_id, cellars(user_id))')
 
       if (filterMode === 'cellar') {
         // Cave: status = 'in_stock'
@@ -52,11 +52,15 @@ export default function StatsPage() {
       }
 
       if (bottles && bottles.length > 0) {
-        // Grouper par vin unique pour éviter les doublons
+        // Filtrer par user_id et grouper par vin unique
         const uniqueWines = new Map()
         for (const bottle of bottles) {
           const wine = Array.isArray(bottle.wines) ? bottle.wines[0] : bottle.wines
-          if (wine && !uniqueWines.has(wine.id)) {
+          const storageUnit = Array.isArray(bottle.storage_units) ? bottle.storage_units[0] : bottle.storage_units
+          const cellar = storageUnit && Array.isArray(storageUnit.cellars) ? storageUnit.cellars[0] : storageUnit?.cellars
+
+          // Vérifier que la bouteille appartient à l'utilisateur
+          if (wine && cellar && cellar.user_id === user.id && !uniqueWines.has(wine.id)) {
             uniqueWines.set(wine.id, wine)
           }
         }
