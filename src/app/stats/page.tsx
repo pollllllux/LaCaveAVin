@@ -30,41 +30,38 @@ export default function StatsPage() {
   async function fetchStats() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      // Récupérer les bouteilles avec leurs infos de vin ET cellars
-      let query = supabase
-        .from('bottles')
-        .select('wine_id, status, wines(*), storage_units(cellar_id, cellars(user_id))')
+      // Récupérer les vins de l'utilisateur
+      const { data: allWines } = await supabase
+        .from('wines')
+        .select('*')
+        .eq('user_id', user.id)
 
-      if (filterMode === 'cellar') {
-        // Cave: status = 'in_stock'
-        query = query.eq('status', 'in_stock')
-      } else {
-        // Historique: status != 'in_stock' (consommées ou offertes)
-        query = query.neq('status', 'in_stock')
-      }
-
-      const { data: bottles, error } = await query
-
-      if (error) {
-        console.error('Erreur fetch bottles:', error.message)
+      if (!allWines) {
+        setWines([])
         setLoading(false)
         return
       }
 
-      if (bottles && bottles.length > 0) {
-        // Filtrer par user_id et grouper par vin unique
-        const uniqueWines = new Map()
-        for (const bottle of bottles) {
-          const wine = Array.isArray(bottle.wines) ? bottle.wines[0] : bottle.wines
-          const storageUnit = Array.isArray(bottle.storage_units) ? bottle.storage_units[0] : bottle.storage_units
-          const cellar = storageUnit && Array.isArray(storageUnit.cellars) ? storageUnit.cellars[0] : storageUnit?.cellars
+      // Récupérer les bouteilles filtrées par status
+      let bottlesQuery = supabase
+        .from('bottles')
+        .select('wine_id, status')
 
-          // Vérifier que la bouteille appartient à l'utilisateur
-          if (wine && cellar && cellar.user_id === user.id && !uniqueWines.has(wine.id)) {
-            uniqueWines.set(wine.id, wine)
-          }
-        }
-        setWines(Array.from(uniqueWines.values()))
+      if (filterMode === 'cellar') {
+        bottlesQuery = bottlesQuery.eq('status', 'in_stock')
+      } else {
+        bottlesQuery = bottlesQuery.neq('status', 'in_stock')
+      }
+
+      const { data: bottles } = await bottlesQuery
+
+      if (bottles) {
+        // Créer un set de wine_ids qui ont au moins une bouteille avec le bon status
+        const wineIdsInStatus = new Set(bottles.map(b => b.wine_id))
+
+        // Filtrer les vins pour ne garder que ceux qui ont des bouteilles avec le bon status
+        const filteredWines = allWines.filter(w => wineIdsInStatus.has(w.id))
+        setWines(filteredWines)
       } else {
         setWines([])
       }
