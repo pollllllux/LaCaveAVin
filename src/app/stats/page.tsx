@@ -20,17 +20,32 @@ function groupAndSort(wines: any[], key: string): { label: string; count: number
 export default function StatsPage() {
   const [wines, setWines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterMode, setFilterMode] = useState<'cellar' | 'consumed'>('cellar')
   const router = useRouter()
 
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, [filterMode])
 
   async function fetchStats() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data } = await supabase.from('wines').select('*').eq('user_id', user.id)
-      if (data) setWines(data)
+      // Récupérer les bouteilles avec leurs infos de vin
+      const { data: bottles } = await supabase
+        .from('bottles')
+        .select('wine_id, status, wines(*)')
+        .eq('status', filterMode === 'cellar' ? 'in_stock' : 'consumed')
+
+      if (bottles) {
+        // Grouper par vin unique pour éviter les doublons
+        const uniqueWines = new Map()
+        for (const bottle of bottles) {
+          if (bottle.wines && !uniqueWines.has(bottle.wines.id)) {
+            uniqueWines.set(bottle.wines.id, bottle.wines)
+          }
+        }
+        setWines(Array.from(uniqueWines.values()))
+      }
     }
     setLoading(false)
   }
@@ -65,14 +80,42 @@ export default function StatsPage() {
         <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Analytique</h1>
       </header>
 
+      {/* Filtres Cave / Historique */}
+      <div className="max-w-md mx-auto flex gap-3 mb-8">
+        <button
+          onClick={() => setFilterMode('cellar')}
+          className={`flex-1 py-3 rounded-2xl font-bold transition-all ${
+            filterMode === 'cellar'
+              ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
+              : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
+          }`}
+        >
+          Cave
+        </button>
+        <button
+          onClick={() => setFilterMode('consumed')}
+          className={`flex-1 py-3 rounded-2xl font-bold transition-all ${
+            filterMode === 'consumed'
+              ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
+              : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
+          }`}
+        >
+          Historique
+        </button>
+      </div>
+
       <div className="max-w-md mx-auto space-y-6">
 
         {/* Carte Score Total */}
         <div className="bg-bordeaux p-8 rounded-[2.5rem] text-white shadow-xl shadow-bordeaux/20 relative overflow-hidden">
           <Wine className="absolute -right-4 -bottom-4 opacity-10 w-32 h-32 rotate-12" />
-          <p className="text-xs uppercase tracking-[0.2em] font-bold opacity-70">Total Collection</p>
+          <p className="text-xs uppercase tracking-[0.2em] font-bold opacity-70">
+            {filterMode === 'cellar' ? 'En Cave' : 'Historique'}
+          </p>
           <h2 className="text-6xl font-serif font-bold mt-2">{total}</h2>
-          <p className="text-sm mt-4 italic opacity-90">Flacons enregistrés</p>
+          <p className="text-sm mt-4 italic opacity-90">
+            {filterMode === 'cellar' ? 'Flacons en stock' : 'Flacons consommés/offerts'}
+          </p>
         </div>
 
         {/* Grille couleurs */}
