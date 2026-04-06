@@ -88,6 +88,12 @@ export default function StatsPage() {
 
   const formatPrice = (n: number) => n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
 
+  // Helper pour construire les URLs vers /vins avec le bon mode
+  const getVinsUrl = (params: string) => {
+    const modeParam = filterMode === 'consumed' ? '&mode=consumed' : ''
+    return `/vins?${params}${modeParam}`
+  }
+
   if (loading) return <div className="h-screen flex items-center justify-center text-bordeaux italic"><Loader2 className="animate-spin mr-2"/> Calcul des indicateurs...</div>
 
   return (
@@ -139,14 +145,14 @@ export default function StatsPage() {
 
         {/* Grille couleurs */}
         <div className="grid grid-cols-3 gap-4">
-          <StatCard label="Rouges" value={reds} color="bg-red-100 text-red-800" onClick={() => router.push('/vins?color=red')} />
-          <StatCard label="Blancs" value={whites} color="bg-amber-100 text-amber-800" onClick={() => router.push('/vins?color=white')} />
-          <StatCard label="Rosés" value={roses} color="bg-rose-100 text-rose-800" onClick={() => router.push('/vins?color=rose')} />
+          <StatCard label="Rouges" value={reds} color="bg-red-100 text-red-800" onClick={() => router.push(getVinsUrl('color=red'))} />
+          <StatCard label="Blancs" value={whites} color="bg-amber-100 text-amber-800" onClick={() => router.push(getVinsUrl('color=white'))} />
+          <StatCard label="Rosés" value={roses} color="bg-rose-100 text-rose-800" onClick={() => router.push(getVinsUrl('color=rose'))} />
         </div>
 
         {/* Alerte Apogée */}
         <button
-          onClick={() => router.push('/vins?maturity=ready')}
+          onClick={() => router.push(getVinsUrl('maturity=ready'))}
           className="w-full bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center gap-6 hover:shadow-md hover:border-bordeaux/30 transition-all active:scale-[0.98]"
         >
           <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
@@ -173,19 +179,19 @@ export default function StatsPage() {
           </div>
           <div className="flex gap-4 text-[9px] font-bold uppercase text-stone-400">
             <button
-              onClick={() => router.push('/vins?color=red')}
+              onClick={() => router.push(getVinsUrl('color=red'))}
               className="flex items-center gap-1 hover:text-bordeaux transition-colors active:scale-95"
             >
               <div className="w-2 h-2 rounded-full bg-bordeaux"></div> {redPercent}% Rouges
             </button>
             <button
-              onClick={() => router.push('/vins?color=white')}
+              onClick={() => router.push(getVinsUrl('color=white'))}
               className="flex items-center gap-1 hover:text-amber-600 transition-colors active:scale-95"
             >
               <div className="w-2 h-2 rounded-full bg-amber-400"></div> {whitePercent}% Blancs
             </button>
             <button
-              onClick={() => router.push('/vins?color=rose')}
+              onClick={() => router.push(getVinsUrl('color=rose'))}
               className="flex items-center gap-1 hover:text-rose-600 transition-colors active:scale-95"
             >
               <div className="w-2 h-2 rounded-full bg-rose-400"></div> {rosePercent}% Rosés
@@ -209,7 +215,7 @@ export default function StatsPage() {
           items={byRegion}
           total={total}
           emptyMsg="Aucune région renseignée"
-          onItemClick={(region) => router.push(`/vins?region=${encodeURIComponent(region)}`)}
+          onItemClick={(region) => router.push(getVinsUrl(`region=${encodeURIComponent(region)}`))}
         />
 
         {/* Valeur totale de la cave */}
@@ -229,7 +235,7 @@ export default function StatsPage() {
         {/* Bouteille la plus chère */}
         {mostExpensive && (
           <button
-            onClick={() => router.push(`/vins?wine_id=${mostExpensive.id}`)}
+            onClick={() => router.push(getVinsUrl(`wine_id=${mostExpensive.id}`))}
             className="w-full bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-300/50 transition-all active:scale-[0.98] text-left"
           >
             <div className="flex items-center gap-2 text-stone-700">

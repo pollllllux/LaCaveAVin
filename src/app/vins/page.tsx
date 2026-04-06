@@ -73,7 +73,7 @@ function GlobalWineListContent() {
   const [winesList, setWinesList] = useState<WineWithContext[]>([])
   const [allWinesList, setAllWinesList] = useState<WineWithContext[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterMode, setFilterMode] = useState<'cellar' | 'consumed'>('cellar')
+  const [filterMode, setFilterMode] = useState<'cellar' | 'consumed'>(searchParams.get('mode') === 'consumed' ? 'consumed' : 'cellar')
   const [consumptionHistory, setConsumptionHistory] = useState<any[]>([])
   const [selectedReviews, setSelectedReviews] = useState<any[]>([])
   const [showReviewsModal, setShowReviewsModal] = useState(false)
@@ -626,7 +626,7 @@ function GlobalWineListContent() {
                           const isClickable = filterMode === 'cellar'
 
                           return (
-                            <button
+                            <div
                               key={vIdx}
                               onClick={() => isClickable && handleVintageClick(wine, v.vintage)}
                               className={`w-full text-sm pb-2 border-b border-stone-100 last:border-b-0 p-2 -mx-2 rounded text-left transition-colors ${
@@ -687,7 +687,7 @@ function GlobalWineListContent() {
                               <p className="text-xs text-stone-500 mt-1">
                                 <span className="font-semibold text-stone-700">{v.count} bouteille{v.count > 1 ? 's' : ''}</span>
                               </p>
-                            </button>
+                            </div>
                           )
                         })}
                       </div>
