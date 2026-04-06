@@ -98,36 +98,36 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-screen bg-stone-50 p-6 pb-24">
-      <header className="max-w-md mx-auto flex items-center gap-4 mb-8">
-        <button onClick={() => router.push('/')} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400">
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Analytique</h1>
+      <header className="max-w-md mx-auto flex items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.push('/')} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Statistiques</h1>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setFilterMode('cellar')}
+            className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all ${
+              filterMode === 'cellar'
+                ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
+                : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
+            }`}
+          >
+            Cave
+          </button>
+          <button
+            onClick={() => setFilterMode('consumed')}
+            className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all ${
+              filterMode === 'consumed'
+                ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
+                : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
+            }`}
+          >
+            Historique
+          </button>
+        </div>
       </header>
-
-      {/* Filtres Cave / Historique */}
-      <div className="max-w-md mx-auto flex gap-3 mb-8">
-        <button
-          onClick={() => setFilterMode('cellar')}
-          className={`flex-1 py-3 rounded-2xl font-bold transition-all ${
-            filterMode === 'cellar'
-              ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
-              : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
-          }`}
-        >
-          Cave
-        </button>
-        <button
-          onClick={() => setFilterMode('consumed')}
-          className={`flex-1 py-3 rounded-2xl font-bold transition-all ${
-            filterMode === 'consumed'
-              ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
-              : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
-          }`}
-        >
-          Historique
-        </button>
-      </div>
 
       <div className="max-w-md mx-auto space-y-6">
 
@@ -150,21 +150,23 @@ export default function StatsPage() {
           <StatCard label="Rosés" value={roses} color="bg-rose-100 text-rose-800" onClick={() => router.push(getVinsUrl('color=rose'))} />
         </div>
 
-        {/* Alerte Apogée */}
-        <button
-          onClick={() => router.push(getVinsUrl('maturity=ready'))}
-          className="w-full bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center gap-6 hover:shadow-md hover:border-bordeaux/30 transition-all active:scale-[0.98]"
-        >
-          <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
-            <BarChart3 size={28} />
-          </div>
-          <div className="text-left">
-            <h3 className="font-bold text-stone-800 leading-tight">Prêt à déguster</h3>
-            <p className="text-xs text-stone-400 mt-1">
-              <span className="text-amber-600 font-bold">{readyToDrink}</span> vins arrivent à apogée en {currentYear} ou {currentYear+1}.
-            </p>
-          </div>
-        </button>
+        {/* Alerte Apogée - uniquement en mode Cave */}
+        {filterMode === 'cellar' && (
+          <button
+            onClick={() => router.push(getVinsUrl('maturity=ready'))}
+            className="w-full bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center gap-6 hover:shadow-md hover:border-bordeaux/30 transition-all active:scale-[0.98]"
+          >
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+              <BarChart3 size={28} />
+            </div>
+            <div className="text-left">
+              <h3 className="font-bold text-stone-800 leading-tight">Prêt à déguster</h3>
+              <p className="text-xs text-stone-400 mt-1">
+                <span className="text-amber-600 font-bold">{readyToDrink}</span> vins arrivent à apogée en {currentYear} ou {currentYear+1}.
+              </p>
+            </div>
+          </button>
+        )}
 
         {/* Barre de répartition couleurs */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">

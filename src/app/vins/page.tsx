@@ -681,7 +681,7 @@ function GlobalWineListContent() {
                                     }
                                     return null
                                   })()}
-                                  <MaturityIconStyled maturity={v.maturity} />
+                                  {filterMode === 'cellar' && <MaturityIconStyled maturity={v.maturity} />}
                                 </span>
                               </p>
                               <p className="text-xs text-stone-500 mt-1">
