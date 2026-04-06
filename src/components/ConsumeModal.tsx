@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Star, X } from 'lucide-react'
 
-export default function ConsumeModal({ wineName, onConfirm, onCancel }: any) {
+export default function ConsumeModal({ wineName, entryDate, onConfirm, onCancel }: any) {
   const [reason, setReason] = useState<'drunk' | 'gift'>('drunk')
   const [rating, setRating] = useState(5)
   const [review, setReview] = useState('')
@@ -78,7 +78,7 @@ export default function ConsumeModal({ wineName, onConfirm, onCancel }: any) {
         )}
 
         <button
-          onClick={() => onConfirm({ reason, rating, review, consumedDate })}
+          onClick={() => onConfirm({ reason, rating, review, consumedDate, entryDate })}
           className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 active:scale-95 transition-all"
         >
           Valider la sortie

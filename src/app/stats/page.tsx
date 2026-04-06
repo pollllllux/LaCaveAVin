@@ -21,7 +21,7 @@ export default function StatsPage() {
   const [wines, setWines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filterMode, setFilterMode] = useState<'cellar' | 'consumed'>('cellar')
-  const [consumptionData, setConsumptionData] = useState<Array<{ period: string; count: number }>>([])
+  const [consumptionData, setConsumptionData] = useState<Array<{ period: string; entered: number; exited: number }>>([])
   const [timeUnit, setTimeUnit] = useState<'month' | 'year'>('month')
   const [displayYear, setDisplayYear] = useState(new Date().getFullYear())
   const [displayYearStart, setDisplayYearStart] = useState(new Date().getFullYear() - 2)
@@ -70,41 +70,62 @@ export default function StatsPage() {
         setWines([])
       }
 
-      // Récupérer les données de consommation si en mode "consumed"
+      // Récupérer les données si en mode "consumed"
       if (filterMode === 'consumed') {
+        // Récupérer l'historique complet
         const { data: history } = await supabase
           .from('consumption_history')
-          .select('consumed_date')
+          .select('entry_date, consumed_date')
 
         if (history) {
-          // Grouper par mois ou année selon timeUnit
-          const grouped: Record<string, number> = {}
+          // Grouper les entrées par mois ou année
+          const entered: Record<string, number> = {}
+          for (const entry of history) {
+            if (entry.entry_date) {
+              const date = new Date(entry.entry_date)
+              const period = timeUnit === 'month'
+                ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                : `${date.getFullYear()}`
+              entered[period] = (entered[period] || 0) + 1
+            }
+          }
+
+          // Grouper les sorties par mois ou année
+          const exited: Record<string, number> = {}
           for (const entry of history) {
             if (entry.consumed_date) {
               const date = new Date(entry.consumed_date)
               const period = timeUnit === 'month'
                 ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
                 : `${date.getFullYear()}`
-              grouped[period] = (grouped[period] || 0) + 1
+              exited[period] = (exited[period] || 0) + 1
             }
           }
 
           // Si en mode mois, générer 12 mois à partir de displayYear
           if (timeUnit === 'month') {
-            const months12: Array<{ period: string; count: number }> = []
+            const months12: Array<{ period: string; entered: number; exited: number }> = []
             for (let i = 0; i < 12; i++) {
               const date = new Date(displayYear, i, 1)
               const period = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-              months12.push({ period, count: grouped[period] || 0 })
+              months12.push({
+                period,
+                entered: entered[period] || 0,
+                exited: exited[period] || 0
+              })
             }
             setConsumptionData(months12)
           } else {
             // Générer 5 années à partir de displayYearStart
-            const years5: Array<{ period: string; count: number }> = []
+            const years5: Array<{ period: string; entered: number; exited: number }> = []
             for (let i = 0; i < 5; i++) {
               const year = displayYearStart + i
               const period = `${year}`
-              years5.push({ period, count: grouped[period] || 0 })
+              years5.push({
+                period,
+                entered: entered[period] || 0,
+                exited: exited[period] || 0
+              })
             }
             setConsumptionData(years5)
           }
@@ -213,110 +234,6 @@ export default function StatsPage() {
           </button>
         )}
 
-        {/* Histogramme de consommation - uniquement en mode Historique */}
-        {filterMode === 'consumed' && consumptionData.length > 0 && (
-          <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <h3 className="text-sm font-bold text-stone-700 uppercase tracking-widest">Consommation</h3>
-                {timeUnit === 'month' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setDisplayYear(displayYear - 1)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
-                      title="Année précédente"
-                    >
-                      ←
-                    </button>
-                    <span className="text-xs font-bold text-stone-600 w-12 text-center">{displayYear}</span>
-                    <button
-                      onClick={() => setDisplayYear(displayYear + 1)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
-                      title="Année suivante"
-                    >
-                      →
-                    </button>
-                  </div>
-                )}
-                {timeUnit === 'year' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setDisplayYearStart(displayYearStart - 5)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
-                      title="5 années précédentes"
-                    >
-                      ←
-                    </button>
-                    <span className="text-xs font-bold text-stone-600">
-                      {displayYearStart}–{displayYearStart + 4}
-                    </span>
-                    <button
-                      onClick={() => setDisplayYearStart(displayYearStart + 5)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
-                      title="5 années suivantes"
-                    >
-                      →
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTimeUnit('month')}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                    timeUnit === 'month'
-                      ? 'bg-bordeaux text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  Mois
-                </button>
-                <button
-                  onClick={() => setTimeUnit('year')}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                    timeUnit === 'year'
-                      ? 'bg-bordeaux text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  Année
-                </button>
-              </div>
-            </div>
-
-            {/* Graphique */}
-            <div className="space-y-3">
-              {(() => {
-                const maxCount = Math.max(...consumptionData.map(d => d.count), 1)
-                const chartHeight = 150
-
-                return (
-                  <div className="flex items-end justify-between gap-2 h-48 px-2">
-                    {consumptionData.map((data) => (
-                      <div key={data.period} className="flex-1 flex flex-col items-center gap-2">
-                        <div
-                          className="w-full bg-gradient-to-t from-bordeaux to-bordeaux/70 rounded-t-lg transition-all hover:from-bordeaux/90 cursor-pointer"
-                          style={{ height: `${(data.count / maxCount) * chartHeight}px` }}
-                          title={`${data.period}: ${data.count} bouteille${data.count > 1 ? 's' : ''}`}
-                        />
-                        <span className="text-[10px] font-bold text-stone-600 text-center truncate w-full">
-                          {timeUnit === 'month' ? data.period.slice(5) : data.period}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-            </div>
-
-            {/* Légende */}
-            <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-[10px]">
-              <span className="text-stone-400">Nombre de bouteilles</span>
-              <span className="font-bold text-stone-700">Total: {consumptionData.reduce((sum, d) => sum + d.count, 0)}</span>
-            </div>
-          </div>
-        )}
-
         {/* Barre de répartition couleurs */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
           <div className="flex justify-between items-end">
@@ -410,6 +327,166 @@ export default function StatsPage() {
               </div>
             </div>
           </button>
+        )}
+
+        {/* Histogramme de consommation - uniquement en mode Historique */}
+        {filterMode === 'consumed' && consumptionData.length > 0 && (
+          <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-bold text-stone-700 uppercase tracking-widest">Consommation</h3>
+                {timeUnit === 'month' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDisplayYear(displayYear - 1)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="Année précédente"
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs font-bold text-stone-600 w-12 text-center">{displayYear}</span>
+                    <button
+                      onClick={() => setDisplayYear(displayYear + 1)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="Année suivante"
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+                {timeUnit === 'year' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDisplayYearStart(displayYearStart - 5)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="5 années précédentes"
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs font-bold text-stone-600">
+                      {displayYearStart}–{displayYearStart + 4}
+                    </span>
+                    <button
+                      onClick={() => setDisplayYearStart(displayYearStart + 5)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="5 années suivantes"
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTimeUnit('month')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    timeUnit === 'month'
+                      ? 'bg-bordeaux text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  Mois
+                </button>
+                <button
+                  onClick={() => setTimeUnit('year')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    timeUnit === 'year'
+                      ? 'bg-bordeaux text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  Année
+                </button>
+              </div>
+            </div>
+
+            {/* Graphique en barres empilées */}
+            <div className="space-y-3">
+              {(() => {
+                const maxCount = Math.max(...consumptionData.map(d => d.entered + d.exited), 1)
+                const chartHeight = 150
+
+                return (
+                  <>
+                    {/* Graphique symétrique autour d'un axe central */}
+                    <div className="px-2" style={{ height: `${chartHeight * 2 + 4}px` }}>
+                      <div className="flex justify-between gap-2">
+                        {consumptionData.map((data) => {
+                          const enteredHeight = (data.entered / maxCount) * chartHeight
+                          const exitedHeight = (data.exited / maxCount) * chartHeight
+
+                          return (
+                            <div key={data.period} className="flex-1 relative" style={{ height: `${chartHeight * 2 + 4}px` }}>
+                              {/* Colonne verte (au-dessus de l'axe) */}
+                              {data.entered > 0 && (
+                                <div
+                                  className="absolute left-1/2 -translate-x-1/2 w-4/5 bg-gradient-to-t from-green-500 to-green-400 transition-all hover:from-green-600 cursor-pointer rounded-t"
+                                  title={`${data.period}: ${data.entered} entrée${data.entered > 1 ? 's' : ''}`}
+                                  style={{
+                                    height: `${enteredHeight}px`,
+                                    bottom: `${chartHeight + 2}px`
+                                  }}
+                                />
+                              )}
+
+                              {/* Axe continu (2px) */}
+                              <div className="absolute w-full border-t-2 border-stone-300" style={{ top: `${chartHeight}px` }}></div>
+
+                              {/* Colonne rouge (en-dessous de l'axe) */}
+                              {data.exited > 0 && (
+                                <div
+                                  className="absolute left-1/2 -translate-x-1/2 w-4/5 bg-gradient-to-b from-red-500 to-red-400 transition-all hover:from-red-600 cursor-pointer rounded-b"
+                                  title={`${data.period}: ${data.exited} sortie${data.exited > 1 ? 's' : ''}`}
+                                  style={{
+                                    height: `${exitedHeight}px`,
+                                    top: `${chartHeight + 2}px`
+                                  }}
+                                />
+                              )}
+
+                              {/* Label */}
+                              <span className="absolute text-[10px] font-bold text-stone-600 text-center truncate w-full" style={{ bottom: '-20px', left: 0, right: 0 }}>
+                                {timeUnit === 'month' ? data.period.slice(5) : data.period}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Espace pour les labels */}
+                    <div style={{ height: '24px' }}></div>
+
+                    {/* Légende */}
+                    <div className="flex gap-4 justify-center text-[10px] font-bold pt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded"></div>
+                        <span className="text-stone-600">Entrées</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded"></div>
+                        <span className="text-stone-600">Sorties</span>
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+
+            {/* Total */}
+            <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-[10px]">
+              <div className="flex gap-6">
+                <div>
+                  <span className="text-stone-400">Entrées totales:</span>
+                  <span className="font-bold text-stone-700 ml-1">{consumptionData.reduce((sum, d) => sum + d.entered, 0)}</span>
+                </div>
+                <div>
+                  <span className="text-stone-400">Sorties totales:</span>
+                  <span className="font-bold text-stone-700 ml-1">{consumptionData.reduce((sum, d) => sum + d.exited, 0)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
       </div>

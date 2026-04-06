@@ -286,6 +286,7 @@ async function fetchBottles() {
         reason: consumptionData.reason,
         rating: consumptionData.rating,
         review: consumptionData.review,
+        entry_date: consumptionData.entryDate,
         consumed_date: consumptionData.consumedDate
       }])
 
@@ -678,10 +679,11 @@ async function fetchBottles() {
 
       {/* --- MODALS CONDITIONNELS --- */}
       {showConsumeModal && (
-        <ConsumeModal 
-          wineName={(showConsumeModal.wine || showConsumeModal.wines)?.name} 
-          onConfirm={handleConfirmConsume} 
-          onCancel={() => setShowConsumeModal(null)} 
+        <ConsumeModal
+          wineName={(showConsumeModal.wine || showConsumeModal.wines)?.name}
+          entryDate={showConsumeModal.created_at?.split('T')[0]}
+          onConfirm={handleConfirmConsume}
+          onCancel={() => setShowConsumeModal(null)}
         />
       )}
       
