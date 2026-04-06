@@ -32,7 +32,7 @@ function getMaturity(peakDate: number | null): MaturityType {
 const MATURITY_LABELS: Record<MaturityType, { label: string; color: string }> = {
   ready: { label: 'À boire', color: 'bg-green-50 text-green-700 border-green-200' },
   after5: { label: 'À conserver', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  past: { label: 'Passé', color: 'bg-stone-50 text-stone-600 border-stone-200' },
+  past: { label: 'À boire sans attendre', color: 'bg-stone-50 text-stone-600 border-stone-200' },
   unknown: { label: 'Inconnu', color: 'bg-stone-50 text-stone-500 border-stone-200' },
 }
 
