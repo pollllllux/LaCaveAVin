@@ -285,7 +285,8 @@ async function fetchBottles() {
         bottle_id: bottleId,
         reason: consumptionData.reason,
         rating: consumptionData.rating,
-        review: consumptionData.review
+        review: consumptionData.review,
+        consumed_date: consumptionData.consumedDate
       }])
 
       setShowConsumeModal(null)

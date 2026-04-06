@@ -21,11 +21,15 @@ export default function StatsPage() {
   const [wines, setWines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filterMode, setFilterMode] = useState<'cellar' | 'consumed'>('cellar')
+  const [consumptionData, setConsumptionData] = useState<Array<{ period: string; count: number }>>([])
+  const [timeUnit, setTimeUnit] = useState<'month' | 'year'>('month')
+  const [displayYear, setDisplayYear] = useState(new Date().getFullYear())
+  const [displayYearStart, setDisplayYearStart] = useState(new Date().getFullYear() - 2)
   const router = useRouter()
 
   useEffect(() => {
     fetchStats()
-  }, [filterMode])
+  }, [filterMode, timeUnit, displayYear, displayYearStart])
 
   async function fetchStats() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -64,6 +68,47 @@ export default function StatsPage() {
         setWines(filteredWines)
       } else {
         setWines([])
+      }
+
+      // Récupérer les données de consommation si en mode "consumed"
+      if (filterMode === 'consumed') {
+        const { data: history } = await supabase
+          .from('consumption_history')
+          .select('consumed_date')
+
+        if (history) {
+          // Grouper par mois ou année selon timeUnit
+          const grouped: Record<string, number> = {}
+          for (const entry of history) {
+            if (entry.consumed_date) {
+              const date = new Date(entry.consumed_date)
+              const period = timeUnit === 'month'
+                ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                : `${date.getFullYear()}`
+              grouped[period] = (grouped[period] || 0) + 1
+            }
+          }
+
+          // Si en mode mois, générer 12 mois à partir de displayYear
+          if (timeUnit === 'month') {
+            const months12: Array<{ period: string; count: number }> = []
+            for (let i = 0; i < 12; i++) {
+              const date = new Date(displayYear, i, 1)
+              const period = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+              months12.push({ period, count: grouped[period] || 0 })
+            }
+            setConsumptionData(months12)
+          } else {
+            // Générer 5 années à partir de displayYearStart
+            const years5: Array<{ period: string; count: number }> = []
+            for (let i = 0; i < 5; i++) {
+              const year = displayYearStart + i
+              const period = `${year}`
+              years5.push({ period, count: grouped[period] || 0 })
+            }
+            setConsumptionData(years5)
+          }
+        }
       }
     }
     setLoading(false)
@@ -166,6 +211,110 @@ export default function StatsPage() {
               </p>
             </div>
           </button>
+        )}
+
+        {/* Histogramme de consommation - uniquement en mode Historique */}
+        {filterMode === 'consumed' && consumptionData.length > 0 && (
+          <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-bold text-stone-700 uppercase tracking-widest">Consommation</h3>
+                {timeUnit === 'month' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDisplayYear(displayYear - 1)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="Année précédente"
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs font-bold text-stone-600 w-12 text-center">{displayYear}</span>
+                    <button
+                      onClick={() => setDisplayYear(displayYear + 1)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="Année suivante"
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+                {timeUnit === 'year' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDisplayYearStart(displayYearStart - 5)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="5 années précédentes"
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs font-bold text-stone-600">
+                      {displayYearStart}–{displayYearStart + 4}
+                    </span>
+                    <button
+                      onClick={() => setDisplayYearStart(displayYearStart + 5)}
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      title="5 années suivantes"
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTimeUnit('month')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    timeUnit === 'month'
+                      ? 'bg-bordeaux text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  Mois
+                </button>
+                <button
+                  onClick={() => setTimeUnit('year')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    timeUnit === 'year'
+                      ? 'bg-bordeaux text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  Année
+                </button>
+              </div>
+            </div>
+
+            {/* Graphique */}
+            <div className="space-y-3">
+              {(() => {
+                const maxCount = Math.max(...consumptionData.map(d => d.count), 1)
+                const chartHeight = 150
+
+                return (
+                  <div className="flex items-end justify-between gap-2 h-48 px-2">
+                    {consumptionData.map((data) => (
+                      <div key={data.period} className="flex-1 flex flex-col items-center gap-2">
+                        <div
+                          className="w-full bg-gradient-to-t from-bordeaux to-bordeaux/70 rounded-t-lg transition-all hover:from-bordeaux/90 cursor-pointer"
+                          style={{ height: `${(data.count / maxCount) * chartHeight}px` }}
+                          title={`${data.period}: ${data.count} bouteille${data.count > 1 ? 's' : ''}`}
+                        />
+                        <span className="text-[10px] font-bold text-stone-600 text-center truncate w-full">
+                          {timeUnit === 'month' ? data.period.slice(5) : data.period}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Légende */}
+            <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-[10px]">
+              <span className="text-stone-400">Nombre de bouteilles</span>
+              <span className="font-bold text-stone-700">Total: {consumptionData.reduce((sum, d) => sum + d.count, 0)}</span>
+            </div>
+          </div>
         )}
 
         {/* Barre de répartition couleurs */}

@@ -7,6 +7,10 @@ export default function ConsumeModal({ wineName, onConfirm, onCancel }: any) {
   const [rating, setRating] = useState(5)
   const [review, setReview] = useState('')
 
+  // Date par défaut = aujourd'hui au format YYYY-MM-DD
+  const today = new Date().toISOString().split('T')[0]
+  const [consumedDate, setConsumedDate] = useState(today)
+
   return (
     <div className="fixed inset-0 bg-stone-900/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95">
@@ -15,12 +19,23 @@ export default function ConsumeModal({ wineName, onConfirm, onCancel }: any) {
           <button onClick={onCancel} className="text-stone-300"><X /></button>
         </div>
 
+        {/* Sélecteur de date */}
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase font-bold text-stone-400 block">Date de sortie</label>
+          <input
+            type="date"
+            value={consumedDate}
+            onChange={(e) => setConsumedDate(e.target.value)}
+            className="w-full p-3 bg-stone-50 rounded-2xl text-sm border-none outline-none focus:ring-2 focus:ring-bordeaux/20"
+          />
+        </div>
+
         <div className="flex gap-2 p-1 bg-stone-100 rounded-2xl">
-          <button 
+          <button
             onClick={() => setReason('drunk')}
             className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${reason === 'drunk' ? 'bg-white shadow-sm text-bordeaux' : 'text-stone-400'}`}
           >Bouteille bue</button>
-          <button 
+          <button
             onClick={() => setReason('gift')}
             className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${reason === 'gift' ? 'bg-white shadow-sm text-bordeaux' : 'text-stone-400'}`}
           >Offerte</button>
@@ -62,8 +77,8 @@ export default function ConsumeModal({ wineName, onConfirm, onCancel }: any) {
           </div>
         )}
 
-        <button 
-          onClick={() => onConfirm({ reason, rating, review })}
+        <button
+          onClick={() => onConfirm({ reason, rating, review, consumedDate })}
           className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 active:scale-95 transition-all"
         >
           Valider la sortie
