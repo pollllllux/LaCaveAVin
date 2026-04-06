@@ -1,19 +1,20 @@
 type MaturityType = 'ready' | 'after5' | 'past' | 'unknown'
 
-// Bouteille SVG réutilisable
 function BottleIcon({ isHorizontal = false, className = '' }: { isHorizontal?: boolean; className?: string }) {
   return (
     <svg
-      viewBox="0 0 20 40"
+      viewBox="0 0 24 60"
       className={`w-5 h-6 ${isHorizontal ? 'rotate-90' : ''} ${className}`}
       fill="currentColor"
     >
-      {/* Goulot */}
-      <rect x="8" y="0" width="4" height="6" />
-      {/* Épaulement */}
-      <path d="M 7 6 Q 7 8 6 10 L 6 14 Q 6 16 8 16 L 12 16 Q 14 16 14 14 L 14 10 Q 13 8 13 6 Z" />
-      {/* Corps */}
-      <path d="M 6 16 Q 5 20 5 28 Q 5 36 8 38 L 12 38 Q 15 36 15 28 Q 15 20 14 16" />
+      {/* Goulot long et fin */}
+      <rect x="10" y="0" width="4" height="11" rx="0.5" />
+      {/* Bouchon/Col */}
+      <ellipse cx="12" cy="11" rx="2.5" ry="0.8" />
+      {/* Épaulement bien marqué (caractéristique Bordeaux) */}
+      <path d="M 10 11.8 L 8 14 Q 6 15.5 6 18 L 6 52 L 18 52 L 18 18 Q 18 15.5 16 14 L 14 11.8 Z" />
+      {/* Reflet léger sur le corps */}
+      <ellipse cx="8.5" cy="28" rx="1.2" ry="4" opacity="0.25" />
     </svg>
   )
 }
@@ -21,18 +22,18 @@ function BottleIcon({ isHorizontal = false, className = '' }: { isHorizontal?: b
 export function MaturityIconStyled({ maturity }: { maturity: MaturityType }) {
   switch (maturity) {
     case 'ready':
-      // Horizontale vert bouteille (à boire tranquillement)
-      return <span className="text-[#2d5016] inline-flex"><BottleIcon isHorizontal={true} /></span>
+      // Verticale vert bouteille (à boire tranquillement)
+      return <span className="text-[#2d5016] inline-flex"><BottleIcon isHorizontal={false} /></span>
 
     case 'after5':
-      // Verticale grise (à conserver longtemps)
-      return <span className="text-stone-400 inline-flex"><BottleIcon isHorizontal={false} /></span>
+      // Horizontale grise (à conserver longtemps)
+      return <span className="text-stone-400 inline-flex"><BottleIcon isHorizontal={true} /></span>
 
     case 'past':
-      // Horizontale vert bouteille clignotante (passé depuis >3 ans, faut la boire vite!)
+      // Verticale vert bouteille clignotante (passé depuis >3 ans, faut la boire vite!)
       return (
         <span className="text-[#2d5016] animate-pulse inline-flex">
-          <BottleIcon isHorizontal={true} />
+          <BottleIcon isHorizontal={false} />
         </span>
       )
 
