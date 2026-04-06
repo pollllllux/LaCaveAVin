@@ -22,18 +22,18 @@ export function MaturityIconStyled({ maturity }: { maturity: MaturityType }) {
   switch (maturity) {
     case 'ready':
       // Horizontale vert bouteille (à boire tranquillement)
-      return <div className="text-[#2d5016]"><BottleIcon isHorizontal={true} /></div>
+      return <span className="text-[#2d5016] inline-flex"><BottleIcon isHorizontal={true} /></span>
 
     case 'after5':
       // Verticale grise (à conserver longtemps)
-      return <div className="text-stone-400"><BottleIcon isHorizontal={false} /></div>
+      return <span className="text-stone-400 inline-flex"><BottleIcon isHorizontal={false} /></span>
 
     case 'past':
       // Horizontale vert bouteille clignotante (passé depuis >3 ans, faut la boire vite!)
       return (
-        <div className="text-[#2d5016] animate-pulse">
+        <span className="text-[#2d5016] animate-pulse inline-flex">
           <BottleIcon isHorizontal={true} />
-        </div>
+        </span>
       )
 
     default:

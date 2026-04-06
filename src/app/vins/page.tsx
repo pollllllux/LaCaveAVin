@@ -41,8 +41,43 @@ function GlobalWineListContent() {
   const searchParams = useSearchParams()
   const { spacing } = useDisplayDensity()
 
+  // Affiche les étoiles avec précision 0.5 (demi-étoile possible)
+  const renderStarsWithHalf = (rating: number) => {
+    return [1, 2, 3, 4, 5].map(i => {
+      if (rating >= i) {
+        // Étoile pleine
+        return <span key={i} className="text-amber-400">★</span>
+      } else if (rating > i - 1) {
+        // Demi-étoile avec gradient
+        return (
+          <span
+            key={i}
+            className="text-stone-300 relative"
+            style={{
+              background: 'linear-gradient(90deg, #fbbf24 50%, #d4d4d8 50%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}
+          >
+            ★
+          </span>
+        )
+      } else {
+        // Étoile grise
+        return <span key={i} className="text-stone-300">★</span>
+      }
+    })
+  }
+
   const [winesList, setWinesList] = useState<WineWithContext[]>([])
+  const [allWinesList, setAllWinesList] = useState<WineWithContext[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterMode, setFilterMode] = useState<'cellar' | 'consumed'>('cellar')
+  const [consumptionHistory, setConsumptionHistory] = useState<any[]>([])
+  const [selectedReviews, setSelectedReviews] = useState<any[]>([])
+  const [showReviewsModal, setShowReviewsModal] = useState(false)
+  const [selectedVintageForReviews, setSelectedVintageForReviews] = useState<{ wineId: string; vintage: number } | null>(null)
   const [filters, setFilters] = useState({
     cellarId: '',
     storageUnitId: '',
@@ -64,7 +99,7 @@ function GlobalWineListContent() {
     })
 
     fetchWinesWithContext()
-  }, [])
+  }, [filterMode])
 
   const handleVintageClick = async (wine: any, vintage: number) => {
     // Find all bottles of this wine/vintage
@@ -92,7 +127,7 @@ function GlobalWineListContent() {
       return
     }
 
-    // Approche 1 : Fetch wines directement, puis matcher avec bottles/storage_units
+    // Fetch wines directement
     const { data: winesData, error: winesError } = await supabase
       .from('wines')
       .select('*')
@@ -110,15 +145,15 @@ function GlobalWineListContent() {
       return
     }
 
-    // Fetch bottles avec storage_units et cellars
+    // Fetch bottles avec storage_units et cellars - TOUS LES STATUTS
     const { data: bottlesData, error: bottlesError } = await supabase
       .from('bottles')
       .select(`
         wine_id,
+        status,
         storage_unit_id,
         storage_units(*)
       `)
-      .eq('status', 'in_stock')
 
     if (bottlesError) {
       console.error('Erreur fetch bottles:', bottlesError.message)
@@ -146,9 +181,16 @@ function GlobalWineListContent() {
 
     const cellarsMap = new Map((cellarsData || []).map(c => [c.id, c]))
 
-    // Merger wines avec context
+    // Merger wines avec context - filtrer par mode
     const seen = new Set<string>()
     const wines = bottlesData
+      .filter(bottle => {
+        if (filterMode === 'cellar') {
+          return bottle.status === 'in_stock'
+        } else {
+          return bottle.status !== 'in_stock'
+        }
+      })
       .map(bottle => {
         const wine = winesData.find(w => w.id === bottle.wine_id)
         const unit = bottle.storage_units
@@ -171,6 +213,39 @@ function GlobalWineListContent() {
 
     console.log('✅ Vins chargés:', wines.length, wines)
     setWinesList(wines)
+
+    // Charger l'historique de consommation si en mode "Historique"
+    if (filterMode === 'consumed' && user) {
+      const { data: history } = await supabase
+        .from('consumption_history')
+        .select('*')
+
+      const { data: bottleData } = await supabase
+        .from('bottles')
+        .select('id, wine_id')
+
+      // Charger TOUS les vins de l'utilisateur pour enrichissement
+      const { data: allUserWines } = await supabase
+        .from('wines')
+        .select('*')
+        .eq('user_id', user.id)
+
+      // Enrichir l'historique
+      const enrichedHistory = history?.map(h => {
+        const bottle = bottleData?.find(b => b.id === h.bottle_id)
+        const wine = allUserWines?.find(w => w.id === bottle?.wine_id)
+        return {
+          ...h,
+          bottles: {
+            wine_id: bottle?.wine_id,
+            wines: { vintage: wine?.vintage }
+          }
+        }
+      }) || []
+
+      setConsumptionHistory(enrichedHistory)
+    }
+
     setLoading(false)
   }
 
@@ -279,14 +354,40 @@ function GlobalWineListContent() {
     <div className="min-h-screen bg-stone-50 p-6">
       {/* Header */}
       <header className={`max-w-2xl mx-auto space-y-4 mb-6`}>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/')}
-            className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 hover:text-bordeaux transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Ma Collection</h1>
+        <div className="flex items-center gap-4 justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/')}
+              className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 hover:text-bordeaux transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Ma Collection</h1>
+          </div>
+
+          {/* Filtres Cave / Historique */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterMode('cellar')}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                filterMode === 'cellar'
+                  ? 'bg-bordeaux text-white'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              }`}
+            >
+              Cave
+            </button>
+            <button
+              onClick={() => setFilterMode('consumed')}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                filterMode === 'consumed'
+                  ? 'bg-bordeaux text-white'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              }`}
+            >
+              Historique
+            </button>
+          </div>
         </div>
 
         {/* Barre de recherche */}
@@ -522,15 +623,64 @@ function GlobalWineListContent() {
                       <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                         {group.vintages.map((v, vIdx) => {
                           const matLabel = MATURITY_LABELS[v.maturity]
+                          const isClickable = filterMode === 'cellar'
+
                           return (
                             <button
                               key={vIdx}
-                              onClick={() => handleVintageClick(wine, v.vintage)}
-                              className="w-full text-sm text-stone-600 pb-2 border-b border-stone-100 last:border-b-0 hover:bg-stone-50 hover:text-stone-800 transition-colors p-2 -mx-2 rounded text-left"
+                              onClick={() => isClickable && handleVintageClick(wine, v.vintage)}
+                              className={`w-full text-sm pb-2 border-b border-stone-100 last:border-b-0 p-2 -mx-2 rounded text-left transition-colors ${
+                                isClickable
+                                  ? 'text-stone-600 hover:bg-stone-50 hover:text-stone-800 cursor-pointer'
+                                  : 'text-stone-400'
+                              }`}
                             >
                               <p className="flex items-center justify-between gap-2">
                                 <span className="text-xs truncate flex-1">{v.vintage} • {capitalize(v.appellation || v.region || v.country)}</span>
-                                <span className="shrink-0">
+                                <span className="shrink-0 flex items-center gap-2">
+                                  {filterMode === 'consumed' && (() => {
+                                    const entriesForVintage = consumptionHistory.filter(h => {
+                                      if (!h.bottles) return false
+                                      const bottle = h.bottles
+                                      const wineInfo = bottle.wines
+                                      return bottle.wine_id === wine.id && wineInfo?.vintage === v.vintage
+                                    })
+
+                                    if (entriesForVintage.length > 0) {
+                                      // Calculer la note moyenne (seulement les entrées bues avec rating)
+                                      const ratingsForVintage = entriesForVintage
+                                        .filter(h => h.rating !== null && h.reason === 'drunk')
+                                        .map(h => h.rating)
+
+                                      const avgRating = ratingsForVintage.length > 0
+                                        ? Math.round((ratingsForVintage.reduce((a, b) => a + b, 0) / ratingsForVintage.length) * 2) / 2
+                                        : 0
+
+                                      // Vérifier s'il y a des offertes
+                                      const hasGifted = entriesForVintage.some(h => h.reason === 'gift')
+                                      const hasRating = ratingsForVintage.length > 0
+
+                                      return (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setSelectedReviews(entriesForVintage)
+                                            setSelectedVintageForReviews({ wineId: wine.id, vintage: v.vintage })
+                                            setShowReviewsModal(true)
+                                          }}
+                                          className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
+                                        >
+                                          <div className="flex gap-0.5 text-sm">
+                                            {hasRating && renderStarsWithHalf(avgRating)}
+                                          </div>
+                                          {hasGifted && (
+                                            <span className="text-sm">🎁</span>
+                                          )}
+                                        </button>
+                                      )
+                                    }
+                                    return null
+                                  })()}
                                   <MaturityIconStyled maturity={v.maturity} />
                                 </span>
                               </p>
@@ -558,6 +708,46 @@ function GlobalWineListContent() {
           </div>
         )}
       </div>
+
+      {/* Modal pour afficher les commentaires */}
+      {showReviewsModal && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-serif font-bold text-stone-800 italic">Commentaires de dégustation</h2>
+
+            {selectedReviews.length === 0 ? (
+              <p className="text-stone-500 italic">Aucun commentaire</p>
+            ) : (
+              <div className="space-y-4">
+                {selectedReviews.map((review, idx) => (
+                  <div key={idx} className="border-l-4 border-bordeaux pl-4 py-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      {review.reason === 'drunk' && (
+                        <div className="flex gap-0.5 text-sm">
+                          {renderStarsWithHalf(review.rating || 0)}
+                        </div>
+                      )}
+                      <span className={`text-xs font-bold ${review.reason === 'gift' ? 'text-green-600' : 'text-stone-600'}`}>
+                        {review.reason === 'gift' ? '🎁 Offerte' : '🍷 Bue'}
+                      </span>
+                    </div>
+                    {review.review && (
+                      <p className="text-sm text-stone-600 italic">{review.review}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowReviewsModal(false)}
+              className="w-full py-3 bg-bordeaux text-white rounded-2xl font-bold hover:bg-stone-800 transition-all"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal pour sélectionner le casier */}
       {selectingCellar && (

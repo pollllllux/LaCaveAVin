@@ -185,9 +185,9 @@ export default function HomePage() {
               <div key={cellar.id} className="bg-white rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden">
 
                 {/* En-tête accordéon */}
-                <button
+                <div
                   onClick={() => setExpandedCellar(isExpanded ? null : cellar.id)}
-                  className={`w-full ${spacing.cardPadding} flex justify-between items-center hover:bg-stone-50 transition-colors group`}
+                  className={`w-full ${spacing.cardPadding} flex justify-between items-center hover:bg-stone-50 transition-colors group cursor-pointer`}
                 >
                   <div className="flex items-center gap-4 text-left">
                     <div className="p-3 bg-stone-50 rounded-2xl text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-colors">
@@ -219,7 +219,7 @@ export default function HomePage() {
                       className={`text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                     />
                   </div>
-                </button>
+                </div>
 
                 {/* Contenu accordéon - Casiers */}
                 {isExpanded && (

@@ -30,17 +30,30 @@ export default function ConsumeModal({ wineName, onConfirm, onCancel }: any) {
           <div className="space-y-4 animate-in slide-in-from-top-2">
             <div className="flex justify-center gap-2">
               {[1, 2, 3, 4, 5].map((s) => (
-                <Star 
-                  key={s} 
-                  size={28} 
+                <Star
+                  key={s}
+                  size={28}
                   onClick={() => setRating(s)}
                   className={`cursor-pointer transition-colors ${s <= rating ? 'text-amber-400 fill-amber-400' : 'text-stone-200'}`}
                 />
               ))}
             </div>
-            <textarea 
+            <textarea
               maxLength={500}
               placeholder="Tes impressions (climat, accords, émotion...)"
+              className="w-full p-4 bg-stone-50 rounded-2xl text-sm border-none outline-none focus:ring-2 focus:ring-bordeaux/20 h-32 resize-none"
+              value={review}
+              onChange={(e) => setReview(e.target.value)}
+            />
+            <p className="text-[10px] text-right text-stone-300 font-bold">{review.length} / 500</p>
+          </div>
+        )}
+
+        {reason === 'gift' && (
+          <div className="space-y-4 animate-in slide-in-from-top-2">
+            <textarea
+              maxLength={500}
+              placeholder="À qui l'as-tu offerte? (nom, occasion...)"
               className="w-full p-4 bg-stone-50 rounded-2xl text-sm border-none outline-none focus:ring-2 focus:ring-bordeaux/20 h-32 resize-none"
               value={review}
               onChange={(e) => setReview(e.target.value)}
