@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Home, Wine, BarChart3, Menu } from 'lucide-react'
 import Link from 'next/link'
@@ -15,12 +16,19 @@ export default function RootLayout({
   const pathname = usePathname()
   const { showWarning, handleStayConnected } = useInactivityTimeout()
 
+  useEffect(() => {
+    document.title = 'maCaveAVin'
+  }, [])
+
   // Liste des pages où l'on masque la navigation et le timeout (Login, Inscription, etc.)
   const hideNav = pathname === '/login' || pathname === '/auth/callback'
   const disableTimeout = hideNav
 
   return (
     <html lang="fr">
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      </head>
       <body className="antialiased bg-stone-50 text-stone-900 font-sans">
         {/* Conteneur principal avec padding en bas pour ne pas être caché par la nav */}
         <main className={`min-h-screen ${!hideNav ? 'pb-24' : ''}`}>
