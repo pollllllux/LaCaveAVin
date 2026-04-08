@@ -500,27 +500,35 @@ async function fetchBottles() {
                           setSelectedPos({x, y})
                         }
                       }}
-                      className={`aspect-[3/4] rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer border shadow-sm relative overflow-hidden group ${highlightBottles.includes(bottle?.id) ? 'animate-pulse ring-4 ring-yellow-300' : ''}
+                      className={`aspect-square rounded-full flex flex-col items-center justify-center transition-all cursor-pointer group relative overflow-hidden shadow-md hover:shadow-lg ${highlightBottles.includes(bottle?.id) ? 'animate-pulse ring-4 ring-yellow-300' : ''}
                         ${wine
-                          ? (wine.color === 'white' ? 'bg-amber-300 border-amber-400' : wine.color === 'rose' ? 'bg-rose-200 border-rose-300' : 'bg-bordeaux border-bordeaux text-white')
+                          ? (wine.color === 'white' ? 'bg-gradient-to-br from-amber-300 to-amber-400 border-2 border-amber-500' : wine.color === 'rose' ? 'bg-gradient-to-br from-rose-200 to-rose-300 border-2 border-rose-400' : 'bg-gradient-to-br from-bordeaux to-red-900 border-2 border-red-950 text-white')
                           : isOccupied
-                          ? 'bg-stone-200 border-stone-300 text-stone-600'
+                          ? 'bg-gradient-to-br from-stone-300 to-stone-400 border-2 border-stone-500'
                           : hasAwaitingBottles
-                          ? 'bg-blue-50 border-blue-300 text-blue-400 hover:border-blue-400 hover:bg-blue-100'
-                          : 'bg-stone-50 border-stone-100 text-stone-200 hover:border-bordeaux/30 hover:bg-stone-100'}`}
+                          ? 'bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-300 group-hover:from-blue-200 group-hover:to-blue-300'
+                          : 'bg-gradient-to-br from-stone-100 to-stone-200 border-2 border-stone-300 group-hover:from-stone-200 group-hover:to-stone-300'}`}
                     >
-                      {wine ? (
-                        <div className="flex flex-col items-center gap-1 animate-in zoom-in-75">
-                          <Wine size={16} className={wine.color === 'red' ? 'text-white/80' : 'text-stone-800/80'} />
-                          <span className="text-[7px] font-bold">{wine.vintage}</span>
-                        </div>
-                      ) : isOccupied ? (
-                        <div className="text-stone-600 text-[10px] font-bold uppercase tracking-[0.2em]">Occupe</div>
-                      ) : hasAwaitingBottles ? (
-                        <Plus size={12} className="opacity-100 scale-110 transition-all" />
-                      ) : (
-                        <Plus size={12} className="opacity-20 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                      {/* Brillance */}
+                      {wine && (
+                        <div className="absolute top-1 left-1 w-1/3 h-1/3 bg-white/30 rounded-full blur-sm" />
                       )}
+
+                      {/* Contenu */}
+                      <div className="relative z-10 flex flex-col items-center gap-1">
+                        {wine ? (
+                          <>
+                            <Wine size={16} className={wine.color === 'red' ? 'text-white/90' : 'text-stone-800/80'} />
+                            <span className="text-[7px] font-bold">{wine.vintage}</span>
+                          </>
+                        ) : isOccupied ? (
+                          <div className="text-stone-600 text-[8px] font-bold">Occupée</div>
+                        ) : hasAwaitingBottles ? (
+                          <Plus size={12} className="text-blue-500" />
+                        ) : (
+                          <Plus size={12} className="text-stone-400 opacity-40 group-hover:opacity-70 transition-all" />
+                        )}
+                      </div>
                     </div>
                   )
                 })}
