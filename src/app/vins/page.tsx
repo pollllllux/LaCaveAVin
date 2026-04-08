@@ -354,22 +354,22 @@ function GlobalWineListContent() {
     <div className="min-h-screen bg-stone-50 p-6">
       {/* Header */}
       <header className={`max-w-2xl mx-auto space-y-4 mb-6`}>
-        <div className="flex items-center gap-4 justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:justify-between">
+          <div className="flex items-center gap-4 shrink-0">
             <button
               onClick={() => router.push('/')}
               className="p-3 bg-white rounded-2xl shadow-sm text-stone-400 hover:text-bordeaux transition-colors"
             >
               <ArrowLeft size={20} />
             </button>
-            <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Ma Collection</h1>
+            <h1 className="text-2xl md:text-3xl font-serif font-bold text-stone-800 italic">Ma Collection</h1>
           </div>
 
           {/* Filtres Cave / Historique */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full md:w-auto">
             <button
               onClick={() => setFilterMode('cellar')}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`flex-1 md:flex-none px-4 py-2 rounded-full text-sm font-bold transition-all ${
                 filterMode === 'cellar'
                   ? 'bg-bordeaux text-white'
                   : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -379,7 +379,7 @@ function GlobalWineListContent() {
             </button>
             <button
               onClick={() => setFilterMode('consumed')}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`flex-1 md:flex-none px-4 py-2 rounded-full text-sm font-bold transition-all ${
                 filterMode === 'consumed'
                   ? 'bg-bordeaux text-white'
                   : 'bg-stone-100 text-stone-700 hover:bg-stone-200'

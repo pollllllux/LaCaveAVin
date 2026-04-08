@@ -164,17 +164,17 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-screen bg-stone-50 p-6 pb-24">
-      <header className="max-w-md mx-auto flex items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
+      <header className="max-w-md mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4 shrink-0">
           <button onClick={() => router.push('/')} className="p-3 bg-white rounded-2xl shadow-sm text-stone-400">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-3xl font-serif font-bold text-stone-800 italic">Statistiques</h1>
+          <h1 className="text-2xl md:text-3xl font-serif font-bold text-stone-800 italic">Statistiques</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full md:w-auto">
           <button
             onClick={() => setFilterMode('cellar')}
-            className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex-1 md:flex-none px-4 py-2 rounded-2xl text-sm font-bold transition-all ${
               filterMode === 'cellar'
                 ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
                 : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
@@ -184,7 +184,7 @@ export default function StatsPage() {
           </button>
           <button
             onClick={() => setFilterMode('consumed')}
-            className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex-1 md:flex-none px-4 py-2 rounded-2xl text-sm font-bold transition-all ${
               filterMode === 'consumed'
                 ? 'bg-bordeaux text-white shadow-lg shadow-bordeaux/20'
                 : 'bg-white text-stone-700 border border-stone-200 hover:border-bordeaux'
