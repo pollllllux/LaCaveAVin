@@ -468,8 +468,17 @@ async function fetchBottles() {
               </div>
             )}
 
-            {/* Grille Interactive (Spec 10) */}
-            <div className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-stone-100 relative overflow-hidden">
+            {/* Grille Interactive (Spec 10) - Cave Ouverte */}
+            <div className="relative overflow-hidden rounded-[2.5rem] shadow-2xl" style={{
+              background: 'linear-gradient(135deg, #3d2817 0%, #5c4033 20%, #4a3728 50%, #3d2817 80%, #2a1810 100%)',
+              boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3)'
+            }}>
+              {/* Effet de porte/cadre */}
+              <div className="absolute inset-0 border-8 border-amber-900/40 rounded-[2.5rem] pointer-events-none" />
+              <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-b from-black/5 to-black/10 pointer-events-none" />
+
+              {/* Contenu */}
+              <div className="p-5 relative z-10">
               <div 
                 className="grid gap-2" 
                 style={{ gridTemplateColumns: `repeat(${cellar.storage_units[activeUnitIndex].width}, minmax(0, 1fr))` }}
@@ -534,7 +543,8 @@ async function fetchBottles() {
                 })}
               </div>
             </div>
-            
+            </div>
+
             <div className="flex justify-center italic text-stone-400 text-[10px] gap-4 uppercase font-bold tracking-tighter">
                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-bordeaux" /> Rouge</span>
                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-300" /> Blanc</span>
