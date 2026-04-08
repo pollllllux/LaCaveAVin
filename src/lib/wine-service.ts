@@ -1,17 +1,215 @@
-import { createWorker } from 'tesseract.js';
 import imageCompression from 'browser-image-compression';
+
+
+// ─── Interface pour résultat structuré ────────────────────────────────────
+export interface RecognitionResult {
+  text: string;
+  rawText: string;
+  domaine: string;
+  vintage: number | null;
+  appellation: string;
+  region: string;
+  country: string;
+}
+
+// ─── Vérification et correction du vin via API route ────────────────────
+async function verifyAndCorrectWineName(
+  domaine: string,
+  appellation: string,
+  country: string,
+  supabaseClient?: any
+): Promise<string> {
+  console.log(`🔍 Vérification du nom via Claude Vision...`);
+
+  try {
+    const response = await fetch('/api/verify-wine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domaine, appellation, country }),
+    });
+
+    if (!response.ok) {
+      console.warn('⚠️ Vérification échouée, garder le nom original');
+      return domaine;
+    }
+
+    const data = await response.json();
+    const correctedName = data.correctedName || domaine;
+
+    if (correctedName !== domaine) {
+      console.log(`✅ Nom corrigé: ${correctedName}`);
+    }
+
+    // Insérer dans wine_catalog si confirmé et non-existant
+    if (correctedName !== 'INEXISTANT' && supabaseClient) {
+      console.log(`💾 Vérification si déjà dans wine_catalog: ${correctedName}`);
+
+      try {
+        // Vérifier si le vin existe déjà
+        const { data: existing } = await supabaseClient
+          .from('wine_catalog')
+          .select('winery')
+          .ilike('winery', `%${correctedName}%`)
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          console.log(`➕ Vin absent, insertion dans wine_catalog: ${correctedName}`);
+          await supabaseClient.from('wine_catalog').insert({
+            winery: correctedName,
+            country: country,
+            region_1: appellation,
+            variety: appellation,
+            province: '',
+          });
+          console.log(`✅ Vin inséré dans wine_catalog`);
+        } else {
+          console.log(`ℹ️ Vin déjà présent dans wine_catalog`);
+        }
+      } catch (insertError) {
+        console.warn(`⚠️ Erreur lors de l'insertion:`, insertError);
+      }
+    }
+
+    return correctedName;
+  } catch (error) {
+    console.warn('⚠️ Erreur vérification, garder le nom original:', error);
+    return domaine;
+  }
+}
+
+// ─── Claude Vision pour reconnaissance d'étiquette ──────────────────────────
+async function recognizeWithClaudeVision(imageFile: File): Promise<RecognitionResult> {
+  // Appeler l'API route Next.js (pas de problème CORS)
+  const formData = new FormData();
+  formData.append('file', imageFile);
+
+  console.log('🔄 Appel Claude Vision...');
+
+  const response = await fetch('/api/recognize-wine', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Recognition failed');
+  }
+
+  const data = await response.json();
+  const rawText = data.rawText || data.text; // Texte brut complet pour classement
+  let text = data.text;
+
+  console.log('✅ Réponse Claude Vision reçue');
+  console.log('─'.repeat(60));
+  console.log(text);
+  console.log('─'.repeat(60));
+
+  // Parser la réponse structurée
+  const lines = text.split('\n').filter((l: string) => l.trim());
+  const parsed: Record<string, string> = {};
+  for (const line of lines) {
+    const [key, value] = line.split(':').map((s: string) => s.trim());
+    if (key && value) {
+      parsed[key.toLowerCase()] = value;
+    }
+  }
+
+  let domaine = parsed.domaine || '';
+  const vintage = parsed.vintage ? parseInt(parsed.vintage) : null;
+  const appellation = parsed.appellation || '';
+  const region = parsed.region || '';
+  const country = parsed.pays || '';
+
+  console.log('📋 Données extraites:');
+  console.log(`  🏰 Domaine: ${domaine}`);
+  console.log(`  📅 Millésime: ${vintage}`);
+  console.log(`  🍷 Appellation: ${appellation}`);
+  console.log(`  📍 Région: ${region}`);
+  console.log(`  🌍 Pays: ${country}`);
+
+  // Exporter la fonction pour utilisation en fallback
+  return {
+    text: `${domaine}\n${appellation}\n${region}\n${vintage || ''}\n${country}`,
+    rawText, // Garder le texte brut original pour détection classement
+    domaine,
+    vintage,
+    appellation,
+    region,
+    country,
+  };
+}
+
+// ─── Détection du classement 1859 ──────────────────────────────────────────
+export function detectClassement1859(text: string, region: string, appellation: string): boolean {
+  console.log(`🔎 Détection classement - Région: ${region}, Appellation: ${appellation}`);
+  console.log(`🔎 Texte brut: "${text.substring(0, 150)}..."`);
+
+  const isBordeaux =
+    region?.toLowerCase().includes('bordeaux') ||
+    appellation?.toLowerCase().includes('bordeaux') ||
+    ['pauillac', 'saint-julien', 'margaux', 'saint-estèphe', 'saint-émilion', 'pomerol', 'graves', 'sauternes'].some(
+      r => appellation?.toLowerCase().includes(r) || region?.toLowerCase().includes(r)
+    );
+
+  console.log(`🔎 Est Bordeaux: ${isBordeaux}`);
+
+  if (!isBordeaux) {
+    console.log('❌ Pas un Bordeaux');
+    return false;
+  }
+
+  const classementPatterns = [
+    'grand cru classé',
+    'grand vin classé',
+    'cru classé en 1855',
+    'classement:',
+    '1er cru',
+    '1ère cru',
+    'premier cru',
+    '2ème cru',
+    '2e cru',
+    'deuxième cru',
+    'cru classé',
+    'classé 1859',
+    'classé 1855',
+  ];
+
+  const lowerText = text.toLowerCase();
+  const found = classementPatterns.some(pattern => {
+    const match = lowerText.includes(pattern);
+    if (match) console.log(`  ✅ Pattern trouvé: "${pattern}"`);
+    return match;
+  });
+
+  if (found) {
+    console.log(`⭐ CLASSEMENT DÉTECTÉ!`);
+  } else {
+    console.log(`❌ Aucun classement détecté`);
+  }
+
+  return found;
+}
+
+export { verifyAndCorrectWineName };
 
 export async function processBottleImage(file: File) {
   // Spec 16: Compression < 200Ko
   const options = { maxSizeMB: 0.19, maxWidthOrHeight: 1200, useWebWorker: true };
   const compressedFile = await imageCompression(file, options);
 
-  // Spec 18: OCR Local (Gratuit)
-  const worker = await createWorker('fra');
-  const { data: { text } } = await worker.recognize(compressedFile);
-  await worker.terminate();
+  // Claude Vision pour reconnaissance (via API route)
+  const recognition = await recognizeWithClaudeVision(compressedFile);
 
-  return { text, compressedFile };
+  return {
+    text: recognition.text,
+    rawText: recognition.rawText,
+    compressedFile,
+    domaine: recognition.domaine,
+    vintage: recognition.vintage,
+    appellation: recognition.appellation,
+    region: recognition.region,
+    country: recognition.country,
+  };
 }
 
 const DOMAIN_KEYWORDS = [
@@ -140,7 +338,7 @@ export async function searchWineCatalog(
   if (error || !data) return []
 
   // Filtrer côté client : chercher les vins qui contiennent TOUS les mots du query
-  const matches = data.filter(row => {
+  const matches = data.filter((row: WineSuggestion) => {
     const normalizedWinery = normalize(row.winery)
     return searchWords.every(word => normalizedWinery.includes(word))
   })

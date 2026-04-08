@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Save, Wine as WineIcon, Star, Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize } from '@/lib/wine-service'
+import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize, verifyAndCorrectWineName, detectClassement1859 } from '@/lib/wine-service'
 import { capitalize } from '@/lib/format'
 
 // ============================================================
@@ -660,33 +660,89 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     setPhotoPreview(preview)
     setOcrLoading(true)
     try {
-      const { text, compressedFile } = await processBottleImage(file)
+      const result = await processBottleImage(file)
+      const { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
       setPhotoFile(compressedFile)
-      const domain = !form.name ? extractDomainFromOCR(text) : null
-      const geo = extractAppellationFromOCR(text, REGIONS_BY_COUNTRY, APPELLATIONS_BY_REGION)
-      const vintage = extractVintageFromOCR(text)
 
-      // Vérifier si le domaine existe dans wine_catalog
-      if (domain) {
-        const hits = await searchWineCatalog(domain, supabase)
+      console.log('🔍 Vérification du domaine dans wine_catalog...')
+
+      // Chercher le domaine dans wine_catalog
+      let finalDomaine = domaine
+      if (domaine) {
+        let hits = await searchWineCatalog(domaine, supabase)
+
         if (hits.length > 0) {
+          console.log(`✅ Vin trouvé: ${hits[0].winery}`)
           setSuggestions(hits)
           setShowSuggestions(true)
-          // Ne pas pré-remplir le champ, laisser l'utilisateur choisir
+
+          // Remplir le formulaire avec le premier résultat validé
+          const selectedWine = hits[0]
+          setForm(f => ({
+            ...f,
+            name: !f.name ? selectedWine.winery : f.name,
+            country: !f.country ? selectedWine.country : f.country,
+            region: !f.region ? selectedWine.region_1 : f.region,
+            appellation: !f.appellation ? selectedWine.variety : f.appellation,
+            vintage: !f.vintage || f.vintage === new Date().getFullYear() ? vintage || f.vintage : f.vintage,
+          }))
+
+          console.log('📝 Formulaire rempli automatiquement')
         } else {
-          setSuggestions([])
-          setShowSuggestions(false)
+          console.log(`⚠️ Vin non trouvé dans wine_catalog: ${domaine}`)
+          console.log('🔄 Vérification et correction via Claude Vision...')
+
+          // Fallback: vérifier et corriger le nom via Claude Vision
+          finalDomaine = await verifyAndCorrectWineName(domaine, appellation, country, supabase)
+
+          // Essayer une nouvelle recherche avec le nom corrigé
+          if (finalDomaine !== domaine) {
+            console.log(`🔍 Nouvelle recherche avec: ${finalDomaine}`)
+            hits = await searchWineCatalog(finalDomaine, supabase)
+          }
+
+          if (hits.length > 0) {
+            console.log(`✅ Vin trouvé après correction: ${hits[0].winery}`)
+            setSuggestions(hits)
+            setShowSuggestions(true)
+
+            const selectedWine = hits[0]
+            setForm(f => ({
+              ...f,
+              name: !f.name ? selectedWine.winery : f.name,
+              country: !f.country ? selectedWine.country : f.country,
+              region: !f.region ? selectedWine.region_1 : f.region,
+              appellation: !f.appellation ? selectedWine.variety : f.appellation,
+              vintage: !f.vintage || f.vintage === new Date().getFullYear() ? vintage || f.vintage : f.vintage,
+            }))
+
+            console.log('📝 Formulaire rempli avec vin corrigé')
+          } else {
+            console.log(`⚠️ Vin toujours non trouvé, utilisation des données détectées`)
+            setSuggestions([])
+            setShowSuggestions(false)
+
+            // Remplir avec les données détectées même si non validées
+            setForm(f => ({
+              ...f,
+              name: !f.name ? finalDomaine : f.name,
+              country: !f.country ? country : f.country,
+              region: !f.region ? region : f.region,
+              appellation: !f.appellation ? appellation : f.appellation,
+              vintage: !f.vintage || f.vintage === new Date().getFullYear() ? vintage || f.vintage : f.vintage,
+            }))
+          }
         }
       }
 
-      setForm(f => ({
-        ...f,
-        ...(geo?.country && !f.country ? { country: geo.country } : {}),
-        ...(geo?.region && !f.region ? { region: geo.region } : {}),
-        ...(geo?.appellation && !f.appellation ? { appellation: geo.appellation } : {}),
-        ...(vintage && f.vintage === new Date().getFullYear() ? { vintage } : {}),
-      }))
-    } catch {
+      // Détection du classement 1859 pour Bordeaux
+      const hasClassement = detectClassement1859(rawText, region, appellation)
+      if (hasClassement) {
+        console.log('⭐ Classement 1859 détecté!')
+        setForm(f => ({ ...f, is_1859_classified: true }))
+      }
+    } catch (error) {
+      console.error('❌ Erreur OCR:', error)
       try {
         const compressed = await imageCompression(file, {
           maxSizeMB: 0.18,
