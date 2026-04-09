@@ -1,69 +1,55 @@
-"use client"
-
-import { useEffect } from 'react'
-import { usePathname } from 'next/navigation'
-import { Home, Wine, BarChart3, Menu } from 'lucide-react'
-import Link from 'next/link'
-import { useInactivityTimeout } from '@/hooks/useInactivityTimeout'
-import InactivityWarning from '@/components/InactivityWarning'
+import { Metadata } from 'next'
+import RootLayoutClient from './layout-client'
 import "./globals.css"
+
+export const metadata: Metadata = {
+  title: 'maCaveAVin - Gestion simple et efficace de vos caves à vin',
+  description: 'Organisez votre collection de vins avec reconnaissance IA des étiquettes et statistiques intelligentes. Gratuit et minimaliste.',
+  keywords: ['vin', 'cave à vin', 'gestion collection', 'IA', 'reconnaissance étiquettes'],
+  authors: [{ name: 'maCaveAVin' }],
+  openGraph: {
+    title: 'maCaveAVin - Gestion de caves à vin',
+    description: 'Organisez votre collection avec reconnaissance IA et statistiques',
+    url: 'https://la-cave-a-vin.vercel.app',
+    siteName: 'maCaveAVin',
+    images: [
+      {
+        url: 'https://la-cave-a-vin.vercel.app/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'maCaveAVin - Gestion de caves à vin'
+      }
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'maCaveAVin',
+    description: 'Gestion simple et efficace de vos caves à vin',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
+  },
+}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const pathname = usePathname()
-  const { showWarning, handleStayConnected } = useInactivityTimeout()
-
-  useEffect(() => {
-    document.title = 'maCaveAVin'
-  }, [])
-
-  // Liste des pages où l'on masque la navigation et le timeout (Login, Inscription, etc.)
-  const hideNav = pathname === '/login' || pathname === '/auth/callback'
-  const disableTimeout = hideNav
-
   return (
     <html lang="fr">
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta httpEquiv="x-ua-compatible" content="ie=edge" />
       </head>
       <body className="antialiased bg-stone-50 text-stone-900 font-sans">
-        {/* Conteneur principal avec padding en bas pour ne pas être caché par la nav */}
-        <main className={`min-h-screen ${!hideNav ? 'pb-24' : ''}`}>
-          {children}
-        </main>
-
-        {/* Alerte d'inactivité */}
-        {!disableTimeout && <InactivityWarning show={showWarning} onStayConnected={handleStayConnected} />}
-
-        {/* Barre de navigation basse - Affichée conditionnellement */}
-        {!hideNav && (
-          <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-stone-100 px-6 py-3 z-50">
-            <div className="max-w-md mx-auto flex justify-around items-center">
-              <Link href="/" className={`flex flex-col items-center gap-1 ${pathname === '/' ? 'text-bordeaux' : 'text-stone-400'}`}>
-                <Home size={22} />
-                <span className="text-[10px] uppercase font-bold tracking-tighter">Cave</span>
-              </Link>
-
-              <Link href="/vins" className={`flex flex-col items-center gap-1 ${pathname === '/vins' ? 'text-bordeaux' : 'text-stone-400'}`}>
-                <Wine size={22} />
-                <span className="text-[10px] uppercase font-bold tracking-tighter">Vins</span>
-              </Link>
-
-              <Link href="/stats" className={`flex flex-col items-center gap-1 ${pathname === '/stats' ? 'text-bordeaux' : 'text-stone-400'}`}>
-                <BarChart3 size={22} />
-                <span className="text-[10px] uppercase font-bold tracking-tighter">Stats</span>
-              </Link>
-
-              <Link href="/menu" className={`flex flex-col items-center gap-1 ${pathname === '/menu' ? 'text-bordeaux' : 'text-stone-400'}`}>
-                <Menu size={22} />
-                <span className="text-[10px] uppercase font-bold tracking-tighter">Menu</span>
-              </Link>
-            </div>
-          </nav>
-        )}
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   )

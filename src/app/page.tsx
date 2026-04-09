@@ -3,397 +3,225 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut, ChevronDown } from 'lucide-react'
-import { useDisplayDensity } from '@/hooks/useDisplayDensity'
-import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
+import { Wine, Brain, BarChart3, ArrowRight, Check } from 'lucide-react'
 
-export default function HomePage() {
-  const { spacing } = useDisplayDensity()
-  const [cellars, setCellars] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [newCellar, setNewCellar] = useState({ name: '', width: 6, height: 4, type: 'classic', units: 1 })
+export default function LandingPage() {
   const [user, setUser] = useState<any>(null)
-  const [authChecked, setAuthChecked] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [expandedCellar, setExpandedCellar] = useState<string | null>(null)
-  const [showAddUnitModal, setShowAddUnitModal] = useState<string | null>(null)
-  const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
   const router = useRouter()
-  const maxCellarsReached = cellars.length >= 3
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+    }
     checkAuth()
-
-    // Load settings from DB on mount
-    fetchUserSettings().then(settings => {
-      syncSettingsToLocalStorage(settings)
-    })
   }, [])
 
-  async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user ?? null
-    setUser(user)
-    setAuthChecked(true)
-    if (!user) {
-      router.push('/login')
-      return
-    }
-    await fetchCellars(user)
-  }
-
-  if (!authChecked || loading) return (
-    <div className="h-screen flex items-center justify-center bg-stone-50 text-bordeaux italic font-serif">
-      <Loader2 className="animate-spin mr-2" /> Chargement...
-    </div>
-  )
-
-  async function fetchCellars(currentUser?: any) {
-    const activeUser = currentUser || user
-    if (!activeUser) {
-      setLoading(false)
-      return
-    }
-
-    const { data, error } = await supabase
-      .from('cellars')
-      .select('*, storage_units(*)')
-      .eq('user_id', activeUser.id)
-
-    if (data) setCellars(data)
-    if (error) console.error('Erreur fetch caves:', error.message)
-    setLoading(false)
-  }
-
-  const handleCreateCellar = async () => {
-    if (!newCellar.name) {
-      alert('Donne un nom à la nouvelle cave.')
-      return
-    }
-    if (!user) {
-      alert('Vous devez être connecté pour créer une cave.')
-      router.push('/login')
-      return
-    }
-
-    setCreating(true)
-    const { data: cellar, error: cError } = await supabase
-      .from('cellars')
-      .insert([{ name: newCellar.name, user_id: user.id, type: newCellar.type }])
-      .select()
-      .single()
-
-    if (cError) {
-      console.error('Erreur création cave:', cError.message)
-      return
-    }
-
-    if (cellar) {
-      const count = Math.min(5, Math.max(1, newCellar.units))
-      const storageUnits = Array.from({ length: count }, (_, index) => ({
-        name: `Casier ${index + 1}`,
-        cellar_id: cellar.id,
-        width: newCellar.width,
-        height: newCellar.height
-      }))
-
-      const { error: sError } = await supabase.from('storage_units').insert(storageUnits)
-      if (!sError) {
-        setNewCellar({ name: '', width: 6, height: 4, type: 'classic', units: 1 })
-        setShowModal(false)
-        await fetchCellars()
-      } else {
-        console.error('Erreur création casiers:', sError.message)
-      }
-    }
-    setCreating(false)
-  }
-
-  const deleteCellar = async (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation()
-    if (!confirm('Supprimer cette cave et tout son contenu ?')) return
-    const { error } = await supabase.from('cellars').delete().eq('id', id)
-    if (error) {
-      console.error('Erreur suppression cave:', error.message)
-      return
-    }
-    await fetchCellars()
-  }
-
-  const handleAddUnit = async (cellarId: string) => {
-    if (!newUnit.name) {
-      alert('Donne un nom au casier.')
-      return
-    }
-
-    const { error } = await supabase.from('storage_units').insert([{
-      name: newUnit.name,
-      cellar_id: cellarId,
-      width: newUnit.width,
-      height: newUnit.height
-    }])
-
-    if (error) {
-      console.error('Erreur création casier:', error.message)
-      return
-    }
-
-    setNewUnit({ name: '', width: 6, height: 4 })
-    setShowAddUnitModal(null)
-    await fetchCellars()
-  }
-
   return (
-    <div className="min-h-screen bg-stone-50 p-6 pb-24">
-      <div className={`max-w-md mx-auto ${spacing.sectionGap}`}>
-
-        {/* Header */}
-        <header className="flex justify-between items-end">
-          <div>
-            <h1 className="text-4xl font-serif font-bold text-stone-800 italic">Mes Caves</h1>
-            <p className="text-stone-400 text-xs uppercase font-bold tracking-widest mt-1">Gestion de Stock</p>
+    <div className="min-h-screen bg-stone-50 text-stone-900">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-stone-200 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-bordeaux rounded-lg text-white">
+              <Wine size={24} />
+            </div>
+            <span className="text-2xl font-serif font-bold text-bordeaux italic">maCaveAVin</span>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
-              className="p-4 rounded-2xl bg-stone-100 text-stone-400 hover:text-red-400 hover:bg-red-50 active:scale-90 transition-all"
-              title="Se déconnecter"
-            >
-              <LogOut size={20} />
-            </button>
-            <button
-              onClick={() => !maxCellarsReached && setShowModal(true)}
-              disabled={maxCellarsReached}
-              className={`p-4 rounded-2xl shadow-lg shadow-bordeaux/20 active:scale-90 transition-transform ${maxCellarsReached ? 'bg-stone-300 text-stone-500 cursor-not-allowed' : 'bg-bordeaux text-white'}`}
-            >
-              <Plus size={24} />
-            </button>
-          </div>
-        </header>
-        {maxCellarsReached && (
-          <p className="text-xs text-red-500 uppercase tracking-[0.2em] font-bold">Limite de 3 caves atteinte. Supprimez une cave pour en ajouter une autre.</p>
-        )}
-
-        {/* Accordéons des Caves */}
-        <div className={`${spacing.cardGap}`}>
-          {cellars.length > 0 ? cellars.map((cellar) => {
-            const isExpanded = expandedCellar === cellar.id
-            const storageUnits = cellar.storage_units || []
-
-            return (
-              <div key={cellar.id} className="bg-white rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden">
-
-                {/* En-tête accordéon */}
-                <div
-                  onClick={() => setExpandedCellar(isExpanded ? null : cellar.id)}
-                  className={`w-full ${spacing.cardPadding} flex justify-between items-center hover:bg-stone-50 transition-colors group cursor-pointer`}
+          <div className="flex gap-3">
+            {user ? (
+              <button
+                onClick={() => router.push('/app')}
+                className="px-6 py-2 bg-bordeaux text-white rounded-full font-bold text-sm hover:bg-stone-800 transition-colors"
+              >
+                Accéder à mon app
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => router.push('/login')}
+                  className="px-6 py-2 text-stone-600 hover:text-stone-900 font-bold text-sm transition-colors"
                 >
-                  <div className="flex items-center gap-4 text-left">
-                    <div className="p-3 bg-stone-50 rounded-2xl text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-colors">
-                      <LayoutGrid size={24} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-stone-800 text-lg">{cellar.name}</h3>
-                      <p className="text-[10px] text-stone-400 uppercase font-bold">
-                        {storageUnits.length} casier{storageUnits.length > 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => {e.stopPropagation(); setShowAddUnitModal(cellar.id)}}
-                      className="p-2 text-stone-200 hover:text-bordeaux hover:bg-stone-100 rounded-lg transition-colors"
-                      title="Ajouter un casier"
-                    >
-                      <Plus size={18} />
-                    </button>
-                    <button
-                      onClick={(e) => deleteCellar(cellar.id, e)}
-                      className="p-2 text-stone-200 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                    <ChevronDown
-                      size={20}
-                      className={`text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                    />
-                  </div>
-                </div>
-
-                {/* Contenu accordéon - Casiers */}
-                {isExpanded && (
-                  <div className="border-t border-stone-100 px-6 py-4 bg-stone-50 space-y-2">
-                    {storageUnits.length > 0 ? (
-                      storageUnits.map((unit, unitIndex) => (
-                        <button
-                          key={unit.id}
-                          onClick={() => router.push(`/cave/${cellar.id}?unit=${unitIndex}`)}
-                          className="w-full p-4 bg-white rounded-xl border border-stone-200 text-left hover:border-bordeaux hover:shadow-md transition-all active:scale-[0.98]"
-                        >
-                          <p className="font-semibold text-stone-800 text-sm">{unit.name}</p>
-                          <p className="text-[10px] text-stone-400 mt-1">
-                            {unit.width}×{unit.height} • Cliquez pour voir la grille
-                          </p>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="text-center text-stone-400 italic py-4">Aucun casier dans cette cave.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          }) : (
-            <div className="text-center py-20 border-2 border-dashed border-stone-200 rounded-[2rem]">
-              <Wine className="mx-auto text-stone-200 mb-4" size={48} />
-              <p className="text-stone-400 italic">Aucune cave enregistrée.</p>
-            </div>
-          )}
+                  Connexion
+                </button>
+                <button
+                  onClick={() => router.push('/login')}
+                  className="px-6 py-2 bg-bordeaux text-white rounded-full font-bold text-sm hover:bg-stone-800 transition-colors"
+                >
+                  Inscription
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </nav>
 
-      {/* MODAL D'AJOUT DE CASIER */}
-      {showAddUnitModal && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
-            <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Nouveau Casier</h2>
+      {/* Hero Section */}
+      <section className="pt-32 pb-20 px-6">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <h1 className="text-5xl md:text-6xl font-serif font-bold italic text-stone-900 leading-tight">
+            La gestion simple et efficace de vos caves à vin
+          </h1>
 
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nom du casier</label>
-                <input
-                  autoFocus
-                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-bordeaux/20"
-                  placeholder="Ex: Casier 1..."
-                  value={newUnit.name}
-                  onChange={e => setNewUnit({...newUnit, name: e.target.value})}
-                />
+          <p className="text-xl text-stone-600 max-w-2xl mx-auto">
+            Organisez votre collection avec élégance. Reconnaissance IA des étiquettes, statistiques intelligentes, et bien plus encore.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <button
+              onClick={() => router.push('/login')}
+              className="px-8 py-4 bg-bordeaux text-white rounded-full font-bold text-lg shadow-lg shadow-bordeaux/30 hover:bg-stone-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              Essayer maintenant
+              <ArrowRight size={20} />
+            </button>
+            <button
+              onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-8 py-4 border-2 border-stone-300 text-stone-900 rounded-full font-bold text-lg hover:border-stone-900 transition-colors"
+            >
+              En savoir plus
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-20 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-serif font-bold italic text-center mb-16 text-stone-900">
+            Fonctionnalités principales
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="p-8 bg-stone-50 rounded-3xl border border-stone-200 hover:border-bordeaux transition-colors group">
+              <div className="p-4 bg-bordeaux/10 rounded-2xl w-fit mb-6 group-hover:bg-bordeaux group-hover:text-white transition-colors">
+                <Brain size={32} className="text-bordeaux group-hover:text-white" />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Colonnes (X)</label>
-                  <input
-                    type="number"
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                    value={newUnit.width}
-                    onChange={e => setNewUnit({...newUnit, width: parseInt(e.target.value) || 1})}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Rangées (Y)</label>
-                  <input
-                    type="number"
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                    value={newUnit.height}
-                    onChange={e => setNewUnit({...newUnit, height: parseInt(e.target.value) || 1})}
-                  />
-                </div>
-              </div>
+              <h3 className="text-2xl font-bold text-stone-900 mb-3">Reconnaissance IA</h3>
+              <p className="text-stone-600">
+                Capturez une photo de l'étiquette et l'IA détecte automatiquement le vin. Plus besoin de taper les informations.
+              </p>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {setShowAddUnitModal(null); setNewUnit({name: '', width: 6, height: 4})}}
-                className="flex-1 py-4 text-stone-400 font-bold"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => handleAddUnit(showAddUnitModal)}
-                className="flex-1 py-4 bg-bordeaux text-white font-bold rounded-2xl hover:bg-stone-800 active:scale-95 transition-all"
-              >
-                Créer
-              </button>
+            {/* Feature 2 */}
+            <div className="p-8 bg-stone-50 rounded-3xl border border-stone-200 hover:border-bordeaux transition-colors group">
+              <div className="p-4 bg-bordeaux/10 rounded-2xl w-fit mb-6 group-hover:bg-bordeaux group-hover:text-white transition-colors">
+                <BarChart3 size={32} className="text-bordeaux group-hover:text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-stone-900 mb-3">Statistiques intelligentes</h3>
+              <p className="text-stone-600">
+                Analysez votre consommation, les vins les plus appréciés, et planifiez vos achats intelligemment.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="p-8 bg-stone-50 rounded-3xl border border-stone-200 hover:border-bordeaux transition-colors group">
+              <div className="p-4 bg-bordeaux/10 rounded-2xl w-fit mb-6 group-hover:bg-bordeaux group-hover:text-white transition-colors">
+                <Wine size={32} className="text-bordeaux group-hover:text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-stone-900 mb-3">Gestion visuelle</h3>
+              <p className="text-stone-600">
+                Organisez vos bouteilles dans une grille spatiale interactive. Visualisez votre cave comme si vous l'ouvriez.
+              </p>
             </div>
           </div>
         </div>
-      )}
+      </section>
 
-      {/* MODAL DE CRÉATION DE CAVE */}
-      {showModal && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
-            <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Nouvel Espace</h2>
-
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nom de la cave</label>
-                <input
-                  autoFocus
-                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-bordeaux/20"
-                  placeholder="Ex: Cave Salon, Garage..."
-                  value={newCellar.name}
-                  onChange={e => setNewCellar({...newCellar, name: e.target.value})}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Type de cave</label>
-                  <select
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                    value={newCellar.type}
-                    onChange={e => setNewCellar({...newCellar, type: e.target.value})}
-                  >
-                    <option value="classic">Classique</option>
-                    <option value="refrigerated">Réfrigéré</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Nombre de casiers</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={5}
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                    value={newCellar.units}
-                    onChange={e => setNewCellar({...newCellar, units: Math.min(5, Math.max(1, parseInt(e.target.value) || 1))})}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Colonnes (X)</label>
-                  <input
-                    type="number"
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                    value={newCellar.width}
-                    onChange={e => setNewCellar({...newCellar, width: parseInt(e.target.value) || 1})}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Rangées (Y)</label>
-                  <input
-                    type="number"
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                    value={newCellar.height}
-                    onChange={e => setNewCellar({...newCellar, height: parseInt(e.target.value) || 1})}
-                  />
-                </div>
-              </div>
+      {/* Benefits Section */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-16 items-center">
+            <div className="space-y-6">
+              <h2 className="text-4xl font-serif font-bold italic text-stone-900">
+                Pourquoi choisir maCaveAVin?
+              </h2>
+              <ul className="space-y-4">
+                {[
+                  "Reconnaissance des étiquettes par IA - gain de temps garanti",
+                  "Interface minimaliste et intuitive",
+                  "Statistiques détaillées de votre consommation",
+                  "Gestion de plusieurs caves",
+                  "Gratuit et sans publicités",
+                  "100% confidentiel - vos données vous appartiennent"
+                ].map((benefit, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <Check className="text-bordeaux flex-shrink-0 mt-1" size={20} />
+                    <span className="text-stone-700">{benefit}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 py-4 text-stone-400 font-bold"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleCreateCellar}
-                disabled={creating}
-                className="flex-1 py-4 bg-bordeaux text-white font-bold rounded-2xl hover:bg-stone-800 active:scale-95 transition-all disabled:opacity-60"
-              >
-                {creating ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Créer'}
-              </button>
+            <div className="bg-gradient-to-br from-bordeaux/10 to-stone-200 rounded-3xl p-12 flex items-center justify-center h-96">
+              <div className="text-center text-stone-400">
+                <Wine size={80} className="mx-auto opacity-50 mb-4" />
+                <p className="font-serif italic">Visualisez votre cave</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-6 bg-bordeaux text-white">
+        <div className="max-w-4xl mx-auto text-center space-y-6">
+          <h2 className="text-4xl font-serif font-bold italic">
+            Prêt à gérer votre collection?
+          </h2>
+          <p className="text-xl text-white/90">
+            Créez votre compte gratuitement et commencez à organiser vos vins maintenant.
+          </p>
+          <button
+            onClick={() => router.push('/login')}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-bordeaux rounded-full font-bold text-lg hover:bg-stone-100 transition-colors active:scale-95 shadow-xl"
+          >
+            Essayer maintenant
+            <ArrowRight size={20} />
+          </button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 px-6 bg-stone-900 text-stone-300 border-t border-stone-800">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-bordeaux rounded-lg text-white">
+                  <Wine size={20} />
+                </div>
+                <span className="font-serif font-bold italic text-white">maCaveAVin</span>
+              </div>
+              <p className="text-sm">La gestion simple et efficace de vos caves à vin</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-white mb-3">Produit</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">FAQ</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-white mb-3">Utilisateur</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="/login" className="hover:text-white transition-colors">Connexion</a></li>
+                <li><a href="/login" className="hover:text-white transition-colors">Inscription</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-white mb-3">Légal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">Confidentialité</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Conditions</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-stone-800 pt-8 text-center text-sm">
+            <p>&copy; 2026 maCaveAVin. Tous droits réservés.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

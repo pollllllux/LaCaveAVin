@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /cave
+Disallow: /login
+Disallow: /menu
+Disallow: /settings
+Disallow: /api/
+
+Sitemap: https://la-cave-a-vin.vercel.app/sitemap.xml
