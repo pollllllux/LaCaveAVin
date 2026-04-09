@@ -256,13 +256,19 @@ async function fetchBottles() {
 
   const handleUpdateWine = async (wineFields: any) => {
     const wine = editingBottle?.wine || editingBottle?.wines
-    if (!wine?.id) return
+    if (!wine?.id) {
+      alert("Erreur: impossible de récupérer l'ID du vin à modifier.")
+      return
+    }
+    // Extract quantity (not a column in wines table)
+    const { quantity: _, ...wineData } = wineFields
     const { error } = await supabase
       .from('wines')
-      .update(wineFields)
+      .update(wineData)
       .eq('id', wine.id)
     if (error) {
       console.error('Erreur mise à jour vin:', error.message)
+      alert('Erreur lors de la mise à jour du vin. Verifie les champs et reessaie.')
       return
     }
     setEditingBottle(null)

@@ -796,7 +796,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       setUploadingPhoto(false)
     }
 
-    onSave({
+    await onSave({
       ...form,
       image_url,
       name: capitalize(form.name),
@@ -824,7 +824,9 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
             <WineIcon size={24} />
           </div>
           <h2 className="text-2xl font-serif font-bold text-stone-800 italic">{initialData ? 'Modifier le Flacon' : 'Nouveau Flacon'}</h2>
-          <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Position : {x} , {y}</p>
+          {x !== undefined && y !== undefined && (
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Position : {x} , {y}</p>
+          )}
         </header>
 
         <div className="space-y-5 max-h-[55vh] overflow-y-auto pr-2 no-scrollbar">
@@ -957,7 +959,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
                   type="number"
                   min={1}
                   max={10}
-                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
+                  disabled={Boolean(initialData)}
+                  className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   value={form.quantity}
                   onChange={e => setForm({ ...form, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
                 />
