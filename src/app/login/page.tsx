@@ -26,11 +26,14 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
 
+    // Utiliser NEXT_PUBLIC_APP_URL si disponible, sinon window.location.origin
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin }
+        options: { emailRedirectTo: appUrl }
       })
       if (error) alert(error.message)
       else alert("Compte créé ! Vérifiez vos emails pour confirmer (si activé dans Supabase).")
@@ -47,8 +50,11 @@ export default function LoginPage() {
     setLoading(true)
     setResetMessage('')
 
+    // Utiliser NEXT_PUBLIC_APP_URL si disponible, sinon window.location.origin
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${appUrl}/reset-password`,
     })
 
     if (error) {
