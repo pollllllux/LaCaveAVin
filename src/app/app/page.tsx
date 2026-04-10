@@ -3,20 +3,20 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut, ChevronDown } from 'lucide-react'
+import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut } from 'lucide-react'
 import { useDisplayDensity } from '@/hooks/useDisplayDensity'
 import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
 export default function HomePage() {
   const { spacing } = useDisplayDensity()
   const [cellars, setCellars] = useState<any[]>([])
+  const [unitBottles, setUnitBottles] = useState<Record<string, any[]>>({})
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [newCellar, setNewCellar] = useState({ name: '', width: 6, height: 4, type: 'classic', units: 1 })
   const [user, setUser] = useState<any>(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [expandedCellar, setExpandedCellar] = useState<string | null>(null)
   const [showAddUnitModal, setShowAddUnitModal] = useState<string | null>(null)
   const [newUnit, setNewUnit] = useState({ name: '', width: 6, height: 4 })
   const router = useRouter()
@@ -61,7 +61,47 @@ export default function HomePage() {
       .select('*, storage_units(*)')
       .eq('user_id', activeUser.id)
 
-    if (data) setCellars(data)
+    if (data) {
+      setCellars(data)
+
+      // Récupérer les bouteilles pour tous les casiers
+      const bottlesMap: Record<string, any[]> = {}
+
+      for (const cellar of data) {
+        for (const unit of cellar.storage_units || []) {
+          const { data: bottles, error: bError } = await supabase
+            .from('bottles')
+            .select('*')
+            .eq('storage_unit_id', unit.id)
+            .eq('status', 'in_stock')
+
+          if (bError) console.error(`Erreur fetch bouteilles pour ${unit.id}:`, bError.message)
+
+          if (bottles && bottles.length > 0) {
+            // Récupérer les infos des vins pour chaque bouteille
+            const wineIds = [...new Set(bottles.map(b => b.wine_id))]
+            const { data: wines } = await supabase
+              .from('wines')
+              .select('*')
+              .in('id', wineIds)
+
+            const winesMap = (wines || []).reduce((acc: any, w: any) => {
+              acc[w.id] = w
+              return acc
+            }, {})
+
+            bottlesMap[unit.id] = bottles.map(b => ({
+              ...b,
+              wine: winesMap[b.wine_id]
+            }))
+          } else {
+            bottlesMap[unit.id] = []
+          }
+        }
+      }
+
+      setUnitBottles(bottlesMap)
+    }
     if (error) console.error('Erreur fetch caves:', error.message)
     setLoading(false)
   }
@@ -175,72 +215,103 @@ export default function HomePage() {
           <p className="text-xs text-red-500 uppercase tracking-[0.2em] font-bold">Limite de 3 caves atteinte. Supprimez une cave pour en ajouter une autre.</p>
         )}
 
-        {/* Accordéons des Caves */}
+        {/* Caves avec casiers en lignes avec miniatures */}
         <div className={`${spacing.cardGap}`}>
           {cellars.length > 0 ? cellars.map((cellar) => {
-            const isExpanded = expandedCellar === cellar.id
             const storageUnits = cellar.storage_units || []
 
             return (
-              <div key={cellar.id} className="bg-white rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden">
-
-                {/* En-tête accordéon */}
-                <div
-                  onClick={() => setExpandedCellar(isExpanded ? null : cellar.id)}
-                  className={`w-full ${spacing.cardPadding} flex justify-between items-center hover:bg-stone-50 transition-colors group cursor-pointer`}
-                >
-                  <div className="flex items-center gap-4 text-left">
-                    <div className="p-3 bg-stone-50 rounded-2xl text-bordeaux group-hover:bg-bordeaux group-hover:text-white transition-colors">
-                      <LayoutGrid size={24} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-stone-800 text-lg">{cellar.name}</h3>
-                      <p className="text-[10px] text-stone-400 uppercase font-bold">
-                        {storageUnits.length} casier{storageUnits.length > 1 ? 's' : ''}
-                      </p>
-                    </div>
+              <div key={cellar.id} className="space-y-3">
+                {/* En-tête de cave */}
+                <div className="flex justify-between items-center px-2">
+                  <div>
+                    <h3 className="font-bold text-stone-800 text-lg">{cellar.name}</h3>
+                    <p className="text-[10px] text-stone-400 uppercase font-bold">
+                      {storageUnits.length} casier{storageUnits.length > 1 ? 's' : ''}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={(e) => {e.stopPropagation(); setShowAddUnitModal(cellar.id)}}
-                      className="p-2 text-stone-200 hover:text-bordeaux hover:bg-stone-100 rounded-lg transition-colors"
+                      onClick={() => setShowAddUnitModal(cellar.id)}
+                      className="p-2 text-stone-400 hover:text-bordeaux hover:bg-stone-100 rounded-lg transition-colors"
                       title="Ajouter un casier"
                     >
                       <Plus size={18} />
                     </button>
                     <button
                       onClick={(e) => deleteCellar(cellar.id, e)}
-                      className="p-2 text-stone-200 hover:text-red-400 transition-colors"
+                      className="p-2 text-stone-400 hover:text-red-400 transition-colors"
                     >
                       <Trash2 size={18} />
                     </button>
-                    <ChevronDown
-                      size={20}
-                      className={`text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                    />
                   </div>
                 </div>
 
-                {/* Contenu accordéon - Casiers */}
-                {isExpanded && (
-                  <div className="border-t border-stone-100 px-6 py-4 bg-stone-50 space-y-2">
-                    {storageUnits.length > 0 ? (
-                      storageUnits.map((unit, unitIndex) => (
+                {/* Casiers en lignes */}
+                {storageUnits.length > 0 ? (
+                  <div className="space-y-2">
+                    {storageUnits.map((unit: any, unitIndex: number) => {
+                      const bottles = unitBottles[unit.id] || []
+
+                      return (
                         <button
                           key={unit.id}
                           onClick={() => router.push(`/cave/${cellar.id}?unit=${unitIndex}`)}
-                          className="w-full p-4 bg-white rounded-xl border border-stone-200 text-left hover:border-bordeaux hover:shadow-md transition-all active:scale-[0.98]"
+                          className="w-full bg-white rounded-2xl border border-stone-100 overflow-hidden hover:border-bordeaux hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-4 p-4"
                         >
-                          <p className="font-semibold text-stone-800 text-sm">{unit.name}</p>
-                          <p className="text-[10px] text-stone-400 mt-1">
-                            {unit.width}×{unit.height} • Cliquez pour voir la grille
-                          </p>
+                          {/* Info casier */}
+                          <div className="flex-1 text-left">
+                            <p className="font-semibold text-stone-800">{unit.name}</p>
+                            <p className="text-[10px] text-stone-400 mt-1">
+                              {bottles.length} bouteille{bottles.length > 1 ? 's' : ''}
+                            </p>
+                          </div>
+
+                          {/* Miniature du casier - respecte le ratio */}
+                          <div
+                            className="rounded-xl p-2 flex-shrink-0 flex flex-col bg-stone-700"
+                            style={{
+                              aspectRatio: `${unit.width} / ${unit.height}`,
+                              width: '140px',
+                              minWidth: '140px',
+                              background: 'linear-gradient(135deg, #3d2817 0%, #5c4033 20%, #4a3728 50%, #3d2817 80%, #2a1810 100%)',
+                            }}
+                          >
+                            <div
+                              className="grid gap-1 flex-1"
+                              style={{ gridTemplateColumns: `repeat(${unit.width}, minmax(0, 1fr))` }}
+                            >
+                              {Array.from({ length: unit.width * unit.height }).map((_, i) => {
+                                const x = (i % unit.width) + 1
+                                const y = Math.floor(i / unit.width) + 1
+                                const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
+                                const wine = bottle?.wine
+
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`aspect-square rounded-full shadow-md border-2 ${
+                                      wine
+                                        ? wine.color === 'white'
+                                          ? 'bg-yellow-300 border-yellow-500 shadow-yellow-300/50'
+                                          : wine.color === 'rose'
+                                          ? 'bg-pink-400 border-pink-600 shadow-pink-400/50'
+                                          : wine.color === 'red'
+                                          ? 'bg-red-600 border-red-800 shadow-red-600/50'
+                                          : 'bg-amber-700 border-amber-900 shadow-amber-700/50'
+                                        : 'bg-stone-500 border-stone-600 shadow-stone-500/30'
+                                    }`}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
                         </button>
-                      ))
-                    ) : (
-                      <p className="text-center text-stone-400 italic py-4">Aucun casier dans cette cave.</p>
-                    )}
+                      )
+                    })}
                   </div>
+                ) : (
+                  <p className="text-center text-stone-400 italic py-4">Aucun casier dans cette cave</p>
                 )}
               </div>
             )

@@ -385,7 +385,7 @@ async function fetchBottles() {
             <X onClick={() => setIsSidebarOpen(false)} className="text-stone-500 cursor-pointer active:scale-75 transition-transform" />
           </div>
           <nav className="space-y-2">
-            <button onClick={() => {setViewMode('overview'); setIsSidebarOpen(false)}} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest group">
+            <button onClick={() => router.push('/app')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest group">
               <LayoutGrid size={18} className="text-bordeaux group-hover:scale-110 transition-transform" /> Ma Cave
             </button>
             <button onClick={() => router.push('/bouteilles')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-stone-400">
@@ -469,11 +469,11 @@ async function fetchBottles() {
           /* --- MODE GESTION (Spec 10) --- */
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="flex items-center justify-between px-2">
-              <button 
-                onClick={() => setViewMode('overview')} 
+              <button
+                onClick={() => router.push('/app')}
                 className="text-[10px] font-bold uppercase text-stone-400 flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm hover:text-bordeaux transition-colors"
               >
-                <ArrowLeft size={12} /> Vue d'ensemble
+                <ArrowLeft size={12} /> Mes Caves
               </button>
               <div className="flex items-center gap-2 text-bordeaux">
                 <div className="w-2 h-2 rounded-full bg-bordeaux animate-pulse" />
