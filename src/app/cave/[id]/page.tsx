@@ -720,42 +720,76 @@ async function fetchBottles() {
         if (!currentUnit) return null
 
         return (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 space-y-4 shadow-2xl relative animate-in zoom-in-95 my-8">
               <button onClick={() => setMovingBottle(null)} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
 
-              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Déplacer la bouteille</h2>
-              <p className="text-sm text-stone-500">Sélectionnez la nouvelle position</p>
+              <div>
+                <h2 className="text-xl font-serif font-bold text-stone-800 italic">Déplacer</h2>
+                <p className="text-xs text-stone-500 mt-1">Cliquez sur la destination</p>
+              </div>
 
-              {/* Grille de sélection */}
-              <div
-                className="grid gap-2 p-4 bg-stone-50 rounded-2xl"
-                style={{ gridTemplateColumns: `repeat(${currentUnit.width}, minmax(0, 1fr))` }}
-              >
-                {Array.from({ length: currentUnit.width * currentUnit.height }).map((_, i) => {
-                  const x = (i % currentUnit.width) + 1
-                  const y = Math.floor(i / currentUnit.width) + 1
-                  const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
-                  const isCurrentPosition = movingBottle.pos_x === x && movingBottle.pos_y === y
-                  const isOccupied = Boolean(bottle) && !isCurrentPosition
+              {/* Grille visuelle avec bouteilles */}
+              <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{
+                background: 'linear-gradient(135deg, #3d2817 0%, #5c4033 20%, #4a3728 50%, #3d2817 80%, #2a1810 100%)',
+                boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3)'
+              }}>
+                {/* Effet de porte/cadre */}
+                <div className="absolute inset-0 border-4 border-amber-900/40 rounded-2xl pointer-events-none" />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-black/5 to-black/10 pointer-events-none" />
 
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => !isOccupied && handleMoveBottle(x, y)}
-                      disabled={isOccupied}
-                      className={`aspect-square rounded-lg font-bold text-xs transition-all ${
-                        isCurrentPosition
-                          ? 'bg-bordeaux text-white ring-2 ring-bordeaux'
-                          : isOccupied
-                          ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
-                          : 'bg-white border-2 border-stone-200 text-stone-600 hover:border-bordeaux active:scale-95'
-                      }`}
-                    >
-                      {x},{y}
-                    </button>
-                  )
-                })}
+                {/* Contenu */}
+                <div className="p-3 relative z-10">
+                  <div
+                    className="grid gap-1"
+                    style={{ gridTemplateColumns: `repeat(${currentUnit.width}, minmax(0, 1fr))` }}
+                  >
+                    {Array.from({ length: currentUnit.width * currentUnit.height }).map((_, i) => {
+                      const x = (i % currentUnit.width) + 1
+                      const y = Math.floor(i / currentUnit.width) + 1
+                      const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
+                      const wine = bottle?.wine || bottle?.wines
+                      const isCurrentPosition = movingBottle.pos_x === x && movingBottle.pos_y === y
+                      const isOccupied = Boolean(bottle) && !isCurrentPosition
+
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => !isOccupied && handleMoveBottle(x, y)}
+                          disabled={isOccupied}
+                          className={`aspect-square rounded-full flex flex-col items-center justify-center transition-all cursor-pointer group relative overflow-hidden shadow-md hover:shadow-lg ${
+                            isCurrentPosition
+                              ? 'ring-4 ring-yellow-300 animate-pulse bg-gradient-to-br from-stone-300 to-stone-400 border-2 border-stone-500'
+                              : isOccupied
+                              ? 'bg-gradient-to-br from-stone-300 to-stone-400 border-2 border-stone-500 cursor-not-allowed'
+                              : wine
+                              ? (wine.color === 'white' ? 'bg-gradient-to-br from-amber-300 to-amber-400 border-2 border-amber-500' : wine.color === 'rose' ? 'bg-gradient-to-br from-rose-200 to-rose-300 border-2 border-rose-400' : 'bg-gradient-to-br from-bordeaux to-red-900 border-2 border-red-950 text-white')
+                              : 'bg-gradient-to-br from-green-100 to-green-200 border-2 border-green-300 group-hover:from-green-200 group-hover:to-green-300'
+                          }`}
+                        >
+                          {wine && (
+                            <div className="absolute top-1 left-1 w-1/3 h-1/3 bg-white/30 rounded-full blur-sm" />
+                          )}
+
+                          <div className="relative z-10 flex flex-col items-center gap-0.5">
+                            {wine ? (
+                              <>
+                                <Wine size={12} className={wine.color === 'red' ? 'text-white/90' : 'text-stone-800/80'} />
+                                <span className="text-[6px] font-bold">{wine.vintage}</span>
+                              </>
+                            ) : isOccupied ? (
+                              <div className="text-stone-600 text-[6px] font-bold">Occ.</div>
+                            ) : isCurrentPosition ? (
+                              <div className="text-yellow-600 text-[6px] font-bold">Ici</div>
+                            ) : (
+                              <Plus size={10} className="text-green-500" />
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
 
               <button
