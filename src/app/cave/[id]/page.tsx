@@ -37,6 +37,7 @@ export default function CellarDetailPage() {
   const [viewingBottle, setViewingBottle] = useState<any>(null)
   const [editingBottle, setEditingBottle] = useState<any>(null)
   const [showConsumeModal, setShowConsumeModal] = useState<any>(null)
+  const [movingBottle, setMovingBottle] = useState<any>(null)
   const [showAddUnit, setShowAddUnit] = useState(false)
   const [showFullPhoto, setShowFullPhoto] = useState(false)
   const [bottlesAwaitingPlacement, setBottlesAwaitingPlacement] = useState<any[]>([])
@@ -300,6 +301,25 @@ async function fetchBottles() {
       setViewingBottle(null)
       fetchBottles()
     }
+  }
+
+  const handleMoveBottle = async (newX: number, newY: number) => {
+    if (!movingBottle?.id) return
+
+    const { error } = await supabase
+      .from('bottles')
+      .update({ pos_x: newX, pos_y: newY })
+      .eq('id', movingBottle.id)
+
+    if (error) {
+      console.error('Erreur déplacement bouteille:', error.message)
+      alert('Erreur lors du déplacement de la bouteille.')
+      return
+    }
+
+    setMovingBottle(null)
+    setViewingBottle(null)
+    await fetchBottles()
   }
 
   const handlePlaceAwaitingBottle = async (x: number, y: number) => {
@@ -667,20 +687,83 @@ async function fetchBottles() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-col">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setEditingBottle(viewingBottle)}
+                    className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
+                  >
+                    <Pencil size={16} /> Modifier
+                  </button>
+                  <button
+                    onClick={() => setShowConsumeModal(viewingBottle)}
+                    className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
+                  >
+                    <Trash2 size={16} /> Sortir
+                  </button>
+                </div>
                 <button
-                  onClick={() => setEditingBottle(viewingBottle)}
-                  className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
+                  onClick={() => setMovingBottle(viewingBottle)}
+                  className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
                 >
-                  <Pencil size={16} /> Modifier
-                </button>
-                <button
-                  onClick={() => setShowConsumeModal(viewingBottle)}
-                  className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
-                >
-                  <Trash2 size={16} /> Sortir
+                  <ChevronRight size={16} /> Déplacer
                 </button>
               </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* --- MODAL DÉPLACEMENT DE BOUTEILLE --- */}
+      {movingBottle && (() => {
+        const currentUnit = cellar?.storage_units[activeUnitIndex]
+        if (!currentUnit) return null
+
+        return (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
+              <button onClick={() => setMovingBottle(null)} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
+
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Déplacer la bouteille</h2>
+              <p className="text-sm text-stone-500">Sélectionnez la nouvelle position</p>
+
+              {/* Grille de sélection */}
+              <div
+                className="grid gap-2 p-4 bg-stone-50 rounded-2xl"
+                style={{ gridTemplateColumns: `repeat(${currentUnit.width}, minmax(0, 1fr))` }}
+              >
+                {Array.from({ length: currentUnit.width * currentUnit.height }).map((_, i) => {
+                  const x = (i % currentUnit.width) + 1
+                  const y = Math.floor(i / currentUnit.width) + 1
+                  const bottle = bottles.find(b => b.pos_x === x && b.pos_y === y)
+                  const isCurrentPosition = movingBottle.pos_x === x && movingBottle.pos_y === y
+                  const isOccupied = Boolean(bottle) && !isCurrentPosition
+
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => !isOccupied && handleMoveBottle(x, y)}
+                      disabled={isOccupied}
+                      className={`aspect-square rounded-lg font-bold text-xs transition-all ${
+                        isCurrentPosition
+                          ? 'bg-bordeaux text-white ring-2 ring-bordeaux'
+                          : isOccupied
+                          ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
+                          : 'bg-white border-2 border-stone-200 text-stone-600 hover:border-bordeaux active:scale-95'
+                      }`}
+                    >
+                      {x},{y}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                onClick={() => setMovingBottle(null)}
+                className="w-full py-3 text-stone-400 font-bold text-sm uppercase tracking-widest"
+              >
+                Annuler
+              </button>
             </div>
           </div>
         )

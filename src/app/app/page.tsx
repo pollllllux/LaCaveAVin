@@ -276,18 +276,22 @@ export default function HomePage() {
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Colonnes (X)</label>
                   <input
                     type="number"
+                    min={1}
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newUnit.width}
-                    onChange={e => setNewUnit({...newUnit, width: parseInt(e.target.value) || 1})}
+                    onChange={e => setNewUnit({...newUnit, width: parseInt(e.target.value) || 0})}
+                    onBlur={e => setNewUnit({...newUnit, width: parseInt(e.target.value) || 1})}
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Rangées (Y)</label>
                   <input
                     type="number"
+                    min={1}
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newUnit.height}
-                    onChange={e => setNewUnit({...newUnit, height: parseInt(e.target.value) || 1})}
+                    onChange={e => setNewUnit({...newUnit, height: parseInt(e.target.value) || 0})}
+                    onBlur={e => setNewUnit({...newUnit, height: parseInt(e.target.value) || 1})}
                   />
                 </div>
               </div>
@@ -349,7 +353,8 @@ export default function HomePage() {
                     max={5}
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newCellar.units}
-                    onChange={e => setNewCellar({...newCellar, units: Math.min(5, Math.max(1, parseInt(e.target.value) || 1))})}
+                    onChange={e => setNewCellar({...newCellar, units: parseInt(e.target.value) || 0})}
+                    onBlur={e => setNewCellar({...newCellar, units: Math.min(5, Math.max(1, parseInt(e.target.value) || 1))})}
                   />
                 </div>
               </div>
@@ -359,18 +364,22 @@ export default function HomePage() {
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Colonnes (X)</label>
                   <input
                     type="number"
+                    min={1}
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newCellar.width}
-                    onChange={e => setNewCellar({...newCellar, width: parseInt(e.target.value) || 1})}
+                    onChange={e => setNewCellar({...newCellar, width: parseInt(e.target.value) || 0})}
+                    onBlur={e => setNewCellar({...newCellar, width: parseInt(e.target.value) || 1})}
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-stone-400 ml-2">Rangées (Y)</label>
                   <input
                     type="number"
+                    min={1}
                     className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
                     value={newCellar.height}
-                    onChange={e => setNewCellar({...newCellar, height: parseInt(e.target.value) || 1})}
+                    onChange={e => setNewCellar({...newCellar, height: parseInt(e.target.value) || 0})}
+                    onBlur={e => setNewCellar({...newCellar, height: parseInt(e.target.value) || 1})}
                   />
                 </div>
               </div>
