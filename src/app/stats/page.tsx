@@ -72,10 +72,11 @@ export default function StatsPage() {
 
       // Récupérer les données si en mode "consumed"
       if (filterMode === 'consumed') {
-        // 1. Récupérer les bouteilles créées (entrées)
+        // 1. Récupérer les bouteilles créées (entrées) de l'utilisateur seulement
         const { data: bottles } = await supabase
           .from('bottles')
-          .select('created_at')
+          .select('created_at, wine_id')
+          .in('wine_id', allWines.map(w => w.id))
 
         // 2. Récupérer l'historique complet (sorties)
         const { data: history } = await supabase
