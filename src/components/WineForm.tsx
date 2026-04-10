@@ -811,13 +811,6 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     <div className="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-[500] p-4 flex items-center justify-center overflow-y-auto">
       <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative my-8 animate-in slide-in-from-bottom-10 duration-500">
 
-        {/* Bouton Fermer */}
-        <button
-          onClick={onCancel}
-          className="absolute top-6 right-6 text-stone-300 hover:text-stone-500 transition-colors p-2"
-        >
-          <X size={24} />
-        </button>
 
         <header className="text-center space-y-1">
           <div className="inline-flex p-3 bg-bordeaux/5 text-bordeaux rounded-full mb-2">
@@ -1050,24 +1043,32 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           </div>
         </div>
 
-        {/* Bouton de validation */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-5 bg-bordeaux text-white rounded-[2rem] font-bold shadow-xl shadow-bordeaux/20 flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-stone-800 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {saving ? (
-            <>
-              <Loader2 size={20} className="animate-spin" />
-              {uploadingPhoto ? 'Upload photo...' : 'Sauvegarde...'}
-            </>
-          ) : (
-            <>
-              <Save size={20} />
-              Placer la bouteille
-            </>
-          )}
-        </button>
+        {/* Boutons d'action */}
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-5 text-stone-400 font-bold rounded-[2rem] hover:text-stone-600 transition-colors"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 py-5 bg-bordeaux text-white rounded-[2rem] font-bold shadow-xl shadow-bordeaux/20 flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-stone-800 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                {uploadingPhoto ? 'Upload...' : 'Sauvegarde...'}
+              </>
+            ) : (
+              <>
+                <Save size={20} />
+                Placer
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

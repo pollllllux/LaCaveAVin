@@ -642,7 +642,6 @@ async function fetchBottles() {
         return (
           <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95">
-              <button onClick={() => { setViewingBottle(null); setShowFullPhoto(false) }} className="absolute top-6 right-6 text-stone-300 p-2"><X size={18} /></button>
 
               {/* Photo étiquette */}
               {wine?.image_url ? (
@@ -699,15 +698,23 @@ async function fetchBottles() {
                     onClick={() => setShowConsumeModal(viewingBottle)}
                     className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95 shadow-sm"
                   >
-                    <Trash2 size={16} /> Sortir
+                    <Trash2 size={16} /> Enlever
                   </button>
                 </div>
-                <button
-                  onClick={() => setMovingBottle(viewingBottle)}
-                  className="w-full py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
-                >
-                  <ChevronRight size={16} /> Déplacer
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setMovingBottle(viewingBottle)}
+                    className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
+                  >
+                    <ChevronRight size={16} /> Déplacer
+                  </button>
+                  <button
+                    onClick={() => { setViewingBottle(null); setShowFullPhoto(false) }}
+                    className="flex-1 py-4 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm"
+                  >
+                    Fermer
+                  </button>
+                </div>
               </div>
             </div>
           </div>
