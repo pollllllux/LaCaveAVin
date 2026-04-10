@@ -72,26 +72,33 @@ export default function StatsPage() {
 
       // Récupérer les données si en mode "consumed"
       if (filterMode === 'consumed') {
-        // Récupérer l'historique complet
+        // 1. Récupérer les bouteilles créées (entrées)
+        const { data: bottles } = await supabase
+          .from('bottles')
+          .select('created_at')
+
+        // 2. Récupérer l'historique complet (sorties)
         const { data: history } = await supabase
           .from('consumption_history')
-          .select('entry_date, consumed_date')
+          .select('consumed_date')
 
-        if (history) {
-          // Grouper les entrées par mois ou année
-          const entered: Record<string, number> = {}
-          for (const entry of history) {
-            if (entry.entry_date) {
-              const date = new Date(entry.entry_date)
+        // Grouper les entrées (création de bouteilles) par mois ou année
+        const entered: Record<string, number> = {}
+        if (bottles) {
+          for (const bottle of bottles) {
+            if (bottle.created_at) {
+              const date = new Date(bottle.created_at)
               const period = timeUnit === 'month'
                 ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
                 : `${date.getFullYear()}`
               entered[period] = (entered[period] || 0) + 1
             }
           }
+        }
 
-          // Grouper les sorties par mois ou année
-          const exited: Record<string, number> = {}
+        // Grouper les sorties par mois ou année
+        const exited: Record<string, number> = {}
+        if (history) {
           for (const entry of history) {
             if (entry.consumed_date) {
               const date = new Date(entry.consumed_date)
@@ -101,6 +108,9 @@ export default function StatsPage() {
               exited[period] = (exited[period] || 0) + 1
             }
           }
+        }
+
+        if (bottles || history) {
 
           // Si en mode mois, générer 12 mois à partir de displayYear
           if (timeUnit === 'month') {
@@ -332,22 +342,22 @@ export default function StatsPage() {
         {/* Histogramme de consommation - uniquement en mode Historique */}
         {filterMode === 'consumed' && consumptionData.length > 0 && (
           <div className="bg-white p-6 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <h3 className="text-sm font-bold text-stone-700 uppercase tracking-widest">Consommation</h3>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
+                <h3 className="text-sm font-bold text-stone-700 uppercase tracking-widest whitespace-nowrap">Consommation</h3>
                 {timeUnit === 'month' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2">
                     <button
                       onClick={() => setDisplayYear(displayYear - 1)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all text-sm"
                       title="Année précédente"
                     >
                       ←
                     </button>
-                    <span className="text-xs font-bold text-stone-600 w-12 text-center">{displayYear}</span>
+                    <span className="text-xs font-bold text-stone-600 w-10 md:w-12 text-center">{displayYear}</span>
                     <button
                       onClick={() => setDisplayYear(displayYear + 1)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all text-sm"
                       title="Année suivante"
                     >
                       →
@@ -355,20 +365,20 @@ export default function StatsPage() {
                   </div>
                 )}
                 {timeUnit === 'year' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2">
                     <button
                       onClick={() => setDisplayYearStart(displayYearStart - 5)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all text-sm"
                       title="5 années précédentes"
                     >
                       ←
                     </button>
-                    <span className="text-xs font-bold text-stone-600">
+                    <span className="text-xs font-bold text-stone-600 whitespace-nowrap">
                       {displayYearStart}–{displayYearStart + 4}
                     </span>
                     <button
                       onClick={() => setDisplayYearStart(displayYearStart + 5)}
-                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+                      className="p-1 rounded text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all text-sm"
                       title="5 années suivantes"
                     >
                       →
@@ -376,7 +386,7 @@ export default function StatsPage() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 ml-auto md:ml-0">
                 <button
                   onClick={() => setTimeUnit('month')}
                   className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
@@ -406,11 +416,87 @@ export default function StatsPage() {
                 const maxCount = Math.max(...consumptionData.map(d => d.entered + d.exited), 1)
                 const chartHeight = 150
 
+                // Calculer le stock cumulatif pour chaque période
+                let cumulativeStock = 0
+                const stockData = consumptionData.map(d => {
+                  cumulativeStock += d.entered - d.exited
+                  return { period: d.period, stock: Math.max(0, cumulativeStock) }
+                })
+
+                // Trouver le stock max pour normaliser l'affichage
+                const maxStock = Math.max(...stockData.map(d => d.stock), 1)
+
+                // Filtrer les données pour le passé et le présent seulement
+                const now = new Date()
+                const currentYear = now.getFullYear()
+                const currentMonth = now.getMonth() + 1
+                const stockDataFiltered = stockData.filter((d, idx) => {
+                  if (timeUnit === 'month') {
+                    const [year, month] = d.period.split('-').map(Number)
+                    return year < currentYear || (year === currentYear && month <= currentMonth)
+                  } else {
+                    const year = parseInt(d.period)
+                    return year <= currentYear
+                  }
+                })
+
+                // Générer le chemin SVG de la courbe lissée (spline cubique)
+                const generateCurvePath = () => {
+                  if (stockDataFiltered.length === 0) return ''
+
+                  const points = stockDataFiltered.map((d, idx) => {
+                    const x = ((idx + 0.5) / consumptionData.length) * 100
+                    const stockHeight = (d.stock / maxStock) * chartHeight
+                    const y = chartHeight - stockHeight
+                    return { x, y, xPercent: x }
+                  })
+
+                  if (points.length === 1) {
+                    return `M ${points[0].xPercent}% ${points[0].y}px`
+                  }
+
+                  let path = `M ${points[0].xPercent}% ${points[0].y}px`
+
+                  for (let i = 0; i < points.length - 1; i++) {
+                    const p0 = points[i]
+                    const p1 = points[i + 1]
+                    const p2 = points[i + 2] || p1
+                    const p_1 = i > 0 ? points[i - 1] : p0
+
+                    // Contrôle des points pour spline cubique
+                    const cp1x = p0.xPercent + (p1.xPercent - p_1.xPercent) / 6
+                    const cp1y = p0.y + (p1.y - p_1.y) / 6
+                    const cp2x = p1.xPercent - (p2.xPercent - p0.xPercent) / 6
+                    const cp2y = p1.y - (p2.y - p0.y) / 6
+
+                    path += ` C ${cp1x}% ${cp1y}px, ${cp2x}% ${cp2y}px, ${p1.xPercent}% ${p1.y}px`
+                  }
+
+                  return path
+                }
+
                 return (
                   <>
                     {/* Graphique symétrique autour d'un axe central */}
-                    <div className="px-2" style={{ height: `${chartHeight * 2 + 4}px` }}>
-                      <div className="flex justify-between gap-2">
+                    <div className="px-2 relative" style={{ height: `${chartHeight * 2 + 4}px` }}>
+                      {/* SVG pour la courbe de stock */}
+                      <svg
+                        className="absolute inset-0 w-full pointer-events-none"
+                        style={{ height: `${chartHeight * 2 + 4}px` }}
+                        preserveAspectRatio="none"
+                      >
+                        {/* Courbe lissée du stock */}
+                        <path
+                          d={generateCurvePath()}
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+
+                      <div className="flex justify-between gap-2 relative z-10">
                         {consumptionData.map((data) => {
                           const enteredHeight = (data.entered / maxCount) * chartHeight
                           const exitedHeight = (data.exited / maxCount) * chartHeight
@@ -458,7 +544,7 @@ export default function StatsPage() {
                     <div style={{ height: '24px' }}></div>
 
                     {/* Légende */}
-                    <div className="flex gap-4 justify-center text-[10px] font-bold pt-2">
+                    <div className="flex gap-4 justify-center text-[10px] font-bold pt-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 bg-green-500 rounded"></div>
                         <span className="text-stone-600">Entrées</span>
@@ -466,6 +552,10 @@ export default function StatsPage() {
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 bg-red-500 rounded"></div>
                         <span className="text-stone-600">Sorties</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-stone-600">Stock</span>
                       </div>
                     </div>
                   </>
