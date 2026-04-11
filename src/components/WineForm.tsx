@@ -33,10 +33,6 @@ const OTHER_COUNTRIES = [
 
 const ALL_COUNTRIES = [...TOP_WINE_COUNTRIES, ...OTHER_COUNTRIES]
 
-// Regions importées depuis wine-service.ts
-
-// Appellations importées depuis wine-service.ts
-
 // ============================================================
 // COMPOSANT COMBOBOX
 // ============================================================
