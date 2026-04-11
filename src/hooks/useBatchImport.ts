@@ -12,6 +12,9 @@ export interface BatchItem {
   country: string | null
   color: 'red' | 'white' | 'rose' | ''
   is_1859: boolean
+  peak_date_start: number | null
+  peak_date_end: number | null
+  vintage_quality: 'weak' | 'normal' | 'good'
   raw_text: string | null
   error_message: string | null
   created_at: string

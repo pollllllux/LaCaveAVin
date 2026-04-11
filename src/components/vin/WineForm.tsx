@@ -3,8 +3,8 @@ import { useState } from 'react'
 
 export default function WineForm({ onSave }: any) {
   const [formData, setFormData] = useState({
-    name: '', vintage: 2024, color: 'red', style: 'still', 
-    is_1859: false, peak_date: 2030, grapes: ''
+    name: '', vintage: 2024, color: 'red', style: 'still',
+    is_1859: false, peak_date_start: 2030, peak_date_end: 2040, grapes: ''
   })
 
   return (
@@ -27,10 +27,17 @@ export default function WineForm({ onSave }: any) {
         <label htmlFor="c1859" className="text-sm font-medium">Classement 1859 ?</label>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-xs text-stone-500 uppercase ml-2">Année d'apogée</label>
-        <input type="number" className="w-full p-3 rounded-xl border font-bold text-bordeaux" 
-          placeholder="Apogée" onChange={e => setFormData({...formData, peak_date: parseInt(e.target.value)})} />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-xs text-stone-500 uppercase ml-2">Apogée début</label>
+          <input type="number" className="w-full p-3 rounded-xl border font-bold text-bordeaux"
+            onChange={e => setFormData({...formData, peak_date_start: parseInt(e.target.value)})} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-stone-500 uppercase ml-2">Apogée fin</label>
+          <input type="number" className="w-full p-3 rounded-xl border font-bold text-bordeaux"
+            onChange={e => setFormData({...formData, peak_date_end: parseInt(e.target.value)})} />
+        </div>
       </div>
 
       <button onClick={() => onSave(formData)} className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20">

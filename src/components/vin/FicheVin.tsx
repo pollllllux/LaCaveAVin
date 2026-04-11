@@ -8,7 +8,7 @@ export default function FicheVin({ wine, isEdit }: { wine: any, isEdit: boolean 
         <div><label className="text-gray-500">Région</label><p className="font-medium">{wine?.region || '-'}</p></div>
         <div><label className="text-gray-500">Millésime</label><p className="font-medium">{wine?.vintage || '-'}</p></div>
         <div><label className="text-gray-500">Couleur</label><p className="font-medium">{wine?.color || '-'}</p></div>
-        <div><label className="text-gray-500">Apogée</label><p className="font-medium text-bordeaux">{wine?.peak_date || '-'}</p></div>
+        <div><label className="text-gray-500">Apogée</label><p className="font-medium text-bordeaux">{wine?.peak_date_start && wine?.peak_date_end ? `${wine.peak_date_start}-${wine.peak_date_end}` : '-'}</p></div>
       </div>
     </div>
   );

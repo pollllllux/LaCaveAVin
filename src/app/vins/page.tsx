@@ -18,14 +18,15 @@ interface WineWithContext {
 
 type MaturityType = 'ready' | 'after5' | 'past' | 'unknown'
 
-function getMaturity(peakDate: number | null): MaturityType {
-  if (!peakDate) return 'unknown'
+function getMaturity(peakDateStart: number | null, peakDateEnd: number | null): MaturityType {
+  if (!peakDateStart || !peakDateEnd) return 'unknown'
   const year = new Date().getFullYear()
-  // À boire: ±3 ans autour de la date de maturité
-  if (peakDate >= year - 3 && peakDate <= year + 3) return 'ready'
-  // Passé depuis plus de 3 ans
-  if (peakDate < year - 3) return 'past'
-  // Sera prêt dans plus de 3 ans
+
+  // À boire : on est dans la plage
+  if (year >= peakDateStart && year <= peakDateEnd) return 'ready'
+  // Passé : moins de 1 an avant la fin ou au-delà
+  if (year >= peakDateEnd - 1) return 'past'
+  // À conserver : avant la plage
   return 'after5'
 }
 
@@ -303,7 +304,7 @@ function GlobalWineListContent() {
 
     // Filtre maturité
     if (filters.maturity) {
-      const maturity = getMaturity(wine.peak_date)
+      const maturity = getMaturity(wine.peak_date_start, wine.peak_date_end)
       if (maturity !== filters.maturity) return false
     }
 
@@ -589,7 +590,7 @@ function GlobalWineListContent() {
                 region: w.wine.region,
                 country: w.wine.country,
                 count: 1,
-                maturity: getMaturity(w.wine.peak_date)
+                maturity: getMaturity(w.wine.peak_date_start, w.wine.peak_date_end)
               })
             }
           })

@@ -8,6 +8,7 @@ import imageCompression from 'browser-image-compression'
 import { processBottleImage, searchWineCatalog, verifyAndCorrectWineName, detectClassement1859, REGIONS_BY_COUNTRY, APPELLATIONS_BY_REGION, matchRegionToList, matchAppellationToList } from '@/lib/wine-service'
 import { loadBatch, addBatchItems, updateBatchItem, uploadBatchImage, removeBatchItem, BatchItem } from '@/hooks/useBatchImport'
 import { fetchUserSettings } from '@/lib/settings-service'
+import { getPeakDate } from '@/lib/wine-peak-dates'
 import ImageCropModal from '@/components/ImageCropModal'
 
 const ACCEPTED_FORMATS = ['image/jpeg', 'image/png']
@@ -116,6 +117,9 @@ export default function BatchImportPage() {
 
         const hasClassement = detectClassement1859(rawText, region, appellation)
 
+        // Chercher la date de maturité optimale (utilise 'normal' par défaut)
+        const [peakDateStart, peakDateEnd] = await getPeakDate(country, region, appellation, vintage, supabase, 'normal')
+
         // Mettre à jour l'item
         const updatedItem = await updateBatchItem(item.id, {
           status: 'done',
@@ -125,6 +129,9 @@ export default function BatchImportPage() {
           region: region || '',
           country: country || '',
           is_1859: hasClassement,
+          peak_date_start: peakDateStart,
+          peak_date_end: peakDateEnd,
+          vintage_quality: 'normal',
           raw_text: rawText
         })
 
@@ -224,22 +231,25 @@ export default function BatchImportPage() {
             country: null,
             color: '',
             is_1859: false,
+            peak_date_start: null,
+            peak_date_end: null,
+            vintage_quality: 'normal' as const,
             raw_text: null,
             error_message: null,
           }
 
           const addedItems = await addBatchItems(user!.id, [newItem])
           setItems((prev) => [...addedItems, ...prev])
+
+          // Démarrer l'OCR immédiatement après chaque upload
+          const pendingItems = addedItems.filter((i) => i.status === 'pending')
+          if (pendingItems.length > 0) {
+            await processQueue(pendingItems, [...items, ...addedItems])
+          }
         }
       } catch (error) {
         console.error(`Erreur compression/upload:`, error)
       }
-    }
-
-    // Démarrer l'OCR
-    const newItems = items.filter((i) => i.status === 'pending')
-    if (newItems.length > 0) {
-      await processQueue(newItems, items)
     }
   }
 
@@ -268,6 +278,9 @@ export default function BatchImportPage() {
           country: null,
           color: '',
           is_1859: false,
+          peak_date_start: null,
+          peak_date_end: null,
+          vintage_quality: 'normal' as const,
           raw_text: null,
           error_message: null,
         }

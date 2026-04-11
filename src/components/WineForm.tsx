@@ -298,7 +298,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     sweetness: initialData?.sweetness ?? 'dry',
     producer_url: initialData?.producer_url ?? '',
     grapes: initialData?.grapes ?? '',
-    peak_date: initialData?.peak_date ?? new Date().getFullYear() + 10,
+    peak_date_start: initialData?.peak_date_start ?? new Date().getFullYear() + 8,
+    peak_date_end: initialData?.peak_date_end ?? new Date().getFullYear() + 20,
     image_url: initialData?.image_url ?? '',
     price: initialData?.price ?? 0,
     quantity: 1,
@@ -819,14 +820,57 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
             />
           </label>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Année d'apogée conseillée</label>
-            <input
-              type="number"
-              className="w-full p-4 bg-stone-50 rounded-2xl outline-none font-bold text-bordeaux"
-              value={form.peak_date}
-              onChange={e => setForm({ ...form, peak_date: parseInt(e.target.value) })}
-            />
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Plage d'apogée</label>
+            <div className="bg-stone-50 rounded-2xl p-4 space-y-3">
+              {/* Affichage de la plage */}
+              <div className="flex justify-between items-center">
+                <div className="text-center">
+                  <p className="text-[9px] text-stone-500 uppercase">Début</p>
+                  <p className="text-lg font-bold text-bordeaux">{form.peak_date_start}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] text-stone-500 uppercase">Fin</p>
+                  <p className="text-lg font-bold text-bordeaux">{form.peak_date_end}</p>
+                </div>
+              </div>
+
+              {/* Slider début */}
+              <div>
+                <label className="text-[9px] text-stone-500 uppercase">À partir de</label>
+                <input
+                  type="range"
+                  min={new Date().getFullYear()}
+                  max={new Date().getFullYear() + 100}
+                  value={form.peak_date_start}
+                  onChange={e => {
+                    const newStart = parseInt(e.target.value)
+                    if (newStart <= form.peak_date_end) {
+                      setForm({ ...form, peak_date_start: newStart })
+                    }
+                  }}
+                  className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Slider fin */}
+              <div>
+                <label className="text-[9px] text-stone-500 uppercase">Jusqu'à</label>
+                <input
+                  type="range"
+                  min={new Date().getFullYear()}
+                  max={new Date().getFullYear() + 100}
+                  value={form.peak_date_end}
+                  onChange={e => {
+                    const newEnd = parseInt(e.target.value)
+                    if (newEnd >= form.peak_date_start) {
+                      setForm({ ...form, peak_date_end: newEnd })
+                    }
+                  }}
+                  className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1">

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import {
   ArrowLeft, Plus, Wine, Loader2, Trash2,
   Layers, X, LayoutGrid, ChevronRight,
-  LogOut, BookOpen, Star, Calendar, Pencil, Camera
+  LogOut, BookOpen, Star, Calendar, Pencil, Camera, TrendingUp
 } from 'lucide-react'
 import WineForm from '@/components/WineForm'
 import ConsumeModal from '@/components/ConsumeModal'
@@ -392,6 +392,7 @@ async function fetchBottles() {
     }
 
     // 1. Create wine record from batch item
+    const currentYear = new Date().getFullYear()
     const wineData = {
       name: batchItem.name,
       vintage: batchItem.vintage,
@@ -400,6 +401,8 @@ async function fetchBottles() {
       country: batchItem.country,
       color: batchItem.color,
       is_1859_classified: batchItem.is_1859,
+      peak_date_start: batchItem.peak_date_start || currentYear + 8,
+      peak_date_end: batchItem.peak_date_end || currentYear + 20,
       image_url: batchItem.image_url
     }
 
@@ -486,6 +489,9 @@ async function fetchBottles() {
             </button>
             <button onClick={() => router.push('/batch-import')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-stone-400">
               <Camera size={18} /> Import en lot
+            </button>
+            <button onClick={() => router.push('/apogee')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-stone-400">
+              <TrendingUp size={18} /> Apogées
             </button>
             <div className="pt-8 border-t border-stone-800 mt-4">
               <button onClick={() => router.push('/')} className="flex items-center gap-4 w-full p-4 text-stone-400 hover:text-white transition-colors text-xs font-bold uppercase">
@@ -801,7 +807,11 @@ async function fetchBottles() {
                 </div>
                 <div className="text-center">
                   <p className="text-[9px] text-stone-400 uppercase font-bold">Apogée</p>
-                  <p className="text-xs font-bold text-bordeaux">{wine?.peak_date || 'N/A'}</p>
+                  <p className="text-xs font-bold text-bordeaux">
+                    {wine?.peak_date_start && wine?.peak_date_end
+                      ? `${wine.peak_date_start}-${wine.peak_date_end}`
+                      : 'N/A'}
+                  </p>
                 </div>
               </div>
 

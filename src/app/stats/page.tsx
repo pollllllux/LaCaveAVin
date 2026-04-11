@@ -155,7 +155,7 @@ export default function StatsPage() {
   const rosePercent = total > 0 ? Math.round((roses / total) * 100) : 0
 
   const currentYear = new Date().getFullYear()
-  const readyToDrink = wines.filter(w => w.peak_date && w.peak_date <= currentYear + 1).length
+  const readyToDrink = wines.filter(w => w.peak_date_start && w.peak_date_start <= currentYear + 1).length
 
   const byCountry = groupAndSort(wines, 'country')
   const byRegion = groupAndSort(wines, 'region')
