@@ -362,3 +362,215 @@ export async function searchWineCatalog(
 
   return [...france, ...others].slice(0, 3)
 }
+
+// ─── Données de référence: Régions et Appellations ──────────────────────────
+export const REGIONS_BY_COUNTRY: Record<string, string[]> = {
+  'France': [
+    'Bordeaux', 'Bourgogne', 'Champagne', 'Alsace', 'Rhône',
+    'Loire', 'Languedoc-Roussillon', 'Provence', 'Beaujolais',
+    'Jura', 'Savoie', 'Sud-Ouest', 'Corse', 'Normandie', 'Bretagne',
+  ],
+  'Italie': [
+    'Toscane', 'Piémont', 'Vénétie', 'Sicile', 'Campanie',
+    'Pouilles', 'Frioul-Vénétie Julienne', 'Lombardie', 'Marches',
+    'Sardaigne', 'Ombrie', 'Émilie-Romagne', 'Calabre', 'Ligurie',
+  ],
+  'Espagne': [
+    'Rioja', 'Ribera del Duero', 'Priorat', 'Penedès', 'Galice',
+    'Jerez', 'Castille-La Manche', 'Navarre', 'Valence',
+    'Aragon', 'Andalousie', 'Catalogne',
+  ],
+  'États-Unis': [
+    'Napa Valley', 'Sonoma', 'Oregon', 'Washington State',
+    'Finger Lakes', 'Willamette Valley', 'Santa Barbara', 'Paso Robles',
+    'Central Coast', 'Sierra Foothills',
+  ],
+  'Argentine': ['Mendoza', 'Salta', 'San Juan', 'Patagonie', 'Río Negro', 'Luján de Cuyo', 'Valle de Uco', 'La Rioja'],
+  'Australie': ['Barossa Valley', 'Coonawarra', 'Margaret River', 'Clare Valley', 'Yarra Valley', 'McLaren Vale', 'Hunter Valley', 'Eden Valley', 'Mornington Peninsula', 'Rutherglen'],
+  'Chili': ['Maipo', 'Colchagua', 'Casablanca', 'Elqui', 'Bío-Bío', 'Aconcagua', 'Rapel', 'Curicó', 'Limarí', 'San Antonio'],
+  'Allemagne': ['Mosel', 'Rheingau', 'Rheinhessen', 'Pfalz', 'Baden', 'Franken', 'Nahe', 'Württemberg', 'Mittelrhein', 'Ahr'],
+  'Portugal': ['Douro', 'Vinho Verde', 'Alentejo', 'Dão', 'Lisboa', 'Setúbal', 'Algarve', 'Ribatejo', 'Bairrada', 'Madère'],
+  'Afrique du Sud': ['Stellenbosch', 'Paarl', 'Swartland', 'Constantia', 'Franschhoek', 'Robertson', 'Walker Bay', 'Elgin'],
+  'Nouvelle-Zélande': ['Marlborough', 'Central Otago', "Hawke's Bay", 'Martinborough', 'Gisborne', 'Nelson', 'Canterbury'],
+  'Autriche': ['Wachau', 'Kremstal', 'Kamptal', 'Burgenland', 'Styrie', 'Vienne', 'Carnuntum', 'Weinviertel'],
+  'Grèce': ['Santorin', 'Naoussa', 'Némée', 'Céphalonie', 'Crète', 'Macédoine', 'Péloponnèse', 'Égée'],
+  'Hongrie': ['Tokaj', 'Eger', 'Villány', 'Badacsony', 'Sopron', 'Szekszárd'],
+  'Roumanie': ['Dealu Mare', 'Cotnari', 'Murfatlar', 'Tîrnave', 'Dobrogea'],
+  'Géorgie': ['Kakhétie', 'Kartlie', 'Iméréthie', 'Racha-Letchkhoumi'],
+  'Liban': ['Bekaa', 'Batroun', 'Jezzine'],
+  'Israël': ['Galilée', 'Shomron', 'Judée', 'Néguev'],
+  'Maroc': ['Meknès', 'Benslimane', 'Berkane', 'Boulaouane'],
+  'Tunisie': ['Bizerte', 'Mornag', 'Grombalia', 'Cap Bon'],
+  'Suisse': ['Valais', 'Vaud', 'Genève', 'Neuchâtel', 'Tessin'],
+  'Bulgarie': ['Thrace', 'Danube', 'Rose Valley', 'Stara Planina'],
+  'Croatie': ['Istrie', 'Dalmatie', 'Slavonie', 'Zagreb'],
+}
+
+export const APPELLATIONS_BY_REGION: Record<string, string[]> = {
+  'Bordeaux': ['Pauillac', 'Saint-Estèphe', 'Saint-Julien', 'Margaux', 'Pessac-Léognan', 'Pomerol', 'Saint-Émilion', 'Sauternes', 'Entre-Deux-Mers', 'Médoc', 'Haut-Médoc', 'Fronsac', 'Canon-Fronsac', 'Côtes de Bourg', 'Blaye', 'Graves', 'Barsac', 'Listrac-Médoc', 'Moulis-en-Médoc', 'Lalande-de-Pomerol', 'Bordeaux Supérieur', 'Bordeaux'],
+  'Bourgogne': ['Chablis', 'Chambolle-Musigny', 'Gevrey-Chambertin', 'Pommard', 'Meursault', 'Puligny-Montrachet', 'Chassagne-Montrachet', 'Nuits-Saint-Georges', 'Vosne-Romanée', 'Beaune', 'Volnay', 'Morey-Saint-Denis', 'Vougeot', 'Echezeaux', 'Grands Echezeaux', 'Richebourg', 'Romanée-Conti', 'La Romanée', 'La Tâche', 'Santenay', 'Aloxe-Corton', 'Savigny-lès-Beaune', 'Auxey-Duresses', 'Marsannay', 'Saint-Aubin', 'Mercurey', 'Givry', 'Montagny', 'Rully', 'Maranges', 'Ladoix', 'Pernand-Vergelesses', 'Chorey-lès-Beaune', 'Bourgogne', 'Bourgogne Aligoté', 'Bourgogne Passetoutgrains', 'Bourgogne Gamay', 'Bourgogne Blanc', 'Bourgogne Rouge', 'Crémant de Bourgogne'],
+  'Champagne': ['Champagne', 'Côteaux Champenois', 'Rosé des Riceys'],
+  'Alsace': ['Alsace', 'Alsace Grand Cru', "Crémant d'Alsace"],
+  'Rhône': ['Châteauneuf-du-Pape', 'Hermitage', 'Crozes-Hermitage', 'Côte-Rôtie', 'Saint-Joseph', 'Condrieu', 'Gigondas', 'Vacqueyras', 'Cornas', 'Tavel', 'Lirac', 'Rasteau', 'Cairanne', 'Ventoux', 'Luberon', 'Côtes du Rhône', 'Côtes du Rhône Villages', 'Muscat de Beaumes-de-Venise', 'Saint-Péray'],
+  'Loire': ['Muscadet', 'Sancerre', 'Pouilly-Fumé', 'Vouvray', 'Bourgueil', 'Chinon', 'Anjou', 'Savennières', 'Quarts-de-Chaume', 'Bonnezeaux', 'Touraine', 'Montlouis', 'Saint-Nicolas-de-Bourgueil', 'Coteaux du Layon', 'Crémant de Loire', 'Muscadet Sèvre-et-Maine', 'Pouilly-sur-Loire', 'Reuilly', 'Quincy', 'Menetou-Salon'],
+  'Languedoc-Roussillon': ['Languedoc', 'Minervois', 'Corbières', 'Fitou', 'Saint-Chinian', 'Faugères', 'Pic Saint-Loup', 'Costières de Nîmes', 'Banyuls', 'Maury', 'Rivesaltes', 'Côtes du Roussillon', 'Collioure', 'Limoux', 'Terrasses du Larzac', 'Pézenas'],
+  'Provence': ['Bandol', 'Côtes de Provence', 'Cassis', 'Palette', 'Les Baux-de-Provence', "Coteaux d'Aix-en-Provence", 'Coteaux Varois en Provence', 'Bellet', 'Pierrevert'],
+  'Beaujolais': ['Moulin-à-Vent', 'Morgon', 'Fleurie', 'Brouilly', 'Juliénas', 'Chiroubles', 'Côte de Brouilly', 'Chénas', 'Saint-Amour', 'Régnié', 'Beaujolais Villages', 'Beaujolais'],
+  'Sud-Ouest': ['Cahors', 'Madiran', 'Bergerac', 'Monbazillac', 'Jurançon', 'Irouléguy', 'Fronton', 'Gaillac', 'Côtes de Duras', 'Pécharmant', 'Montravel', 'Buzet', 'Côtes du Marmandais'],
+  'Jura': ['Arbois', 'Château-Chalon', "L'Étoile", 'Crémant du Jura', 'Côtes du Jura', 'Macvin du Jura'],
+  'Savoie': ['Vin de Savoie', 'Roussette de Savoie', 'Crépy', 'Seyssel'],
+  'Corse': ['Patrimonio', 'Ajaccio', 'Muscat du Cap Corse', 'Vin de Corse'],
+  'Normandie': ['Cidre'],
+  'Bretagne': ['Cidre'],
+  'Toscane': ['Chianti', 'Chianti Classico', 'Brunello di Montalcino', 'Vino Nobile di Montepulciano', 'Bolgheri', 'Morellino di Scansano', 'Vernaccia di San Gimignano', 'Rosso di Montalcino', 'Rosso di Montepulciano', 'Maremma Toscana', 'Orcia'],
+  'Piémont': ['Barolo', 'Barbaresco', "Barbera d'Asti", "Barbera d'Alba", "Dolcetto d'Alba", "Moscato d'Asti", 'Gavi', 'Asti', 'Langhe', 'Monferrato', 'Roero', "Brachetto d'Acqui"],
+  'Vénétie': ['Amarone della Valpolicella', 'Valpolicella', 'Soave', 'Prosecco', 'Bardolino', 'Recioto della Valpolicella', 'Lugana', 'Ripasso'],
+  'Sicile': ["Nero d'Avola", 'Marsala', 'Moscato di Pantelleria', 'Etna', 'Cerasuolo di Vittoria'],
+  'Campanie': ['Taurasi', 'Greco di Tufo', 'Fiano di Avellino', 'Vesuvio'],
+  'Pouilles': ['Primitivo di Manduria', 'Negroamaro', 'Salice Salentino', 'Brindisi', 'Lecce', 'Barolo del Salento'],
+  'Frioul-Vénétie Julienne': ['Friuli DOC', 'Carso DOC', 'Collio DOC', 'Friuli Grave DOC', 'Friuli Isonzo DOC'],
+  'Lombardie': ['Franciacorta DOCG', 'Valtellina Superiore DOCG', 'Oltrepò Pavese DOC', 'Lugana DOC', 'Sforzato'],
+  'Marches': ["Montepulciano d'Abruzzo", 'Verdicchio', 'Rosso Conero'],
+  'Sardaigne': ['Vermentino di Sardegna DOC', 'Cannonau di Sardegna DOC', 'Carignano del Sulcis DOC', 'Vernaccia di Oristano DOC'],
+  'Ombrie': ['Sagrantino di Montefalco DOCG', 'Grechetto', 'Montefalco Rosso DOC', 'Torgiano DOC'],
+  'Émilie-Romagne': ['Lambrusco DOC', 'Pignoletto DOC', 'Sangiovese di Romagna DOC', 'Trebbiano di Romagna DOC'],
+  'Calabre': ['Cirò DOC', 'Greco di Gerace DOC', 'Melissa DOC'],
+  'Ligurie': ['Pigato DOC', 'Vermentino DOC', 'Rossese di Dolceacqua DOC'],
+  'Rioja': ['Rioja DOCa', 'Rioja Alavesa', 'Rioja Alta', 'Rioja Oriental'],
+  'Ribera del Duero': ['Ribera del Duero DO'],
+  'Priorat': ['Priorat DOQ', 'Montsant DO'],
+  'Jerez': ['Fino', 'Manzanilla', 'Amontillado', 'Oloroso', 'Pedro Ximénez', 'Palo Cortado', 'Cream Sherry'],
+  'Galice': ['Rías Baixas', 'Ribeiro', 'Valdeorras', 'Monterrei'],
+  'Penedès': ['Penedès DO', 'Cava DO'],
+  'Catalogne': ['Conca de Barberà DO', 'Costers del Segre DO', 'Tarragona DO'],
+  'Castille-La Manche': ['La Mancha DO', 'Valdepeñas DO', 'Almansa DO'],
+  'Valence': ['Utiel-Requena DO', 'Jumilla DO'],
+  'Navarre': ['Navarra DOCa', 'Navarra Blanca'],
+  'Aragon': ['Campo de Borja DO', 'Calatayud DO', 'Somontano DO', 'Teruel DO'],
+  'Andalousie': ['Montilla-Moriles DO', 'Córdoba DO', 'Huelva DO'],
+  'Napa Valley': ['Napa Valley AVA', 'Rutherford', 'Oakville', 'Stags Leap District', 'Mount Veeder', 'Howell Mountain', 'Spring Mountain District', 'Diamond Mountain District', 'Yountville', 'St. Helena'],
+  'Sonoma': ['Russian River Valley', 'Sonoma Coast', 'Alexander Valley', 'Dry Creek Valley', 'Carneros', 'Chalk Hill'],
+  'Oregon': ['Willamette Valley', 'Rogue Valley', 'Umpqua Valley'],
+  'Finger Lakes': ['Seneca Lake AVA', 'Keuka Lake AVA', 'Cayuga Lake AVA'],
+  'Washington State': ['Columbia Valley AVA', 'Walla Walla Valley AVA', 'Yakima Valley AVA', 'Puget Sound AVA'],
+  'Santa Barbara': ['Santa Maria Valley AVA', 'Santa Ynez Valley AVA'],
+  'Paso Robles': ['Paso Robles AVA', 'Adelaida District'],
+  'Central Coast': ['Monterey AVA', 'San Luis Obispo AVA', 'Santa Cruz Mountains AVA'],
+  'Sierra Foothills': ['Amador County AVA', 'El Dorado AVA', 'Tuolumne County AVA'],
+  'Willamette Valley': ['Willamette Valley AVA', 'Dundee Hills AVA', 'Yamhill-Carlton AVA'],
+  'Mendoza': ['Luján de Cuyo', 'Valle de Uco', 'Maipú', 'Tupungato'],
+  'Douro': ['Porto', 'Douro DOC', 'Porto Vintage', 'Porto LBV'],
+  'Vinho Verde': ['Vinho Verde DOC', 'Alvarinho', 'Loureiro', 'Azal'],
+  'Alentejo': ['Alentejo DOC', 'Vidigueira', 'Borba', 'Redondo', 'Reguengos'],
+  'Barossa Valley': ['Barossa Valley GI', 'Eden Valley GI'],
+  'Margaret River': ['Margaret River GI'],
+  'Mosel': ['Bernkasteler Doctor', 'Piesporter Goldtröpfchen', 'Wehlener Sonnenuhr', 'Scharzhofberg', 'Trittenheimer Apotheke'],
+  'Rheingau': ['Rüdesheimer Berg Schlossberg', 'Johannisberger Vogelsang', 'Hattenheimer Nussbrunnen', 'Rheingau QbA'],
+  'Rheinhessen': ['Rheinhessen QbA', 'Nierstein'],
+  'Pfalz': ['Pfalz QbA', 'Bad Dürkheim'],
+  'Baden': ['Baden QbA', 'Kaiserstuhl'],
+  'Franken': ['Franken QbA', 'Würzburg'],
+  'Nahe': ['Nahe QbA', 'Bad Kreuznach'],
+  'Württemberg': ['Württemberg QbA', 'Stuttgart'],
+  'Mittelrhein': ['Mittelrhein QbA', 'Assmannshausen'],
+  'Ahr': ['Ahr QbA', 'Spätburgunder', 'Ahrweiler'],
+  'Tokaj': ['Tokaji Aszú', 'Tokaji Furmint', 'Tokaji Szamorodni'],
+  'Wachau': ['Wachau DAC', 'Grüner Veltliner', 'Riesling Wachau'],
+  'Santorin': ['Santorin AOC', 'Assyrtiko de Santorin'],
+  'Naoussa': ['Naoussa AOC', 'Xinomavro'],
+  'Némée': ['Nemea AOC', 'Agiorgitiko'],
+  'Céphalonie': ['Robola de Cephalonie AOC'],
+  'Crète': ['Crète AOC', 'Malvasia', 'Kotsifali'],
+  'Macédoine': ['Carmenere', 'Rapsani AOC'],
+  'Péloponnèse': ['Corinthia AOC', 'Mantinia AOC'],
+  'Égée': ['Cyclades AOC', 'Rhodes AOC'],
+  'Kremstal': ['Kremstal DAC', 'Grüner Veltliner Kremstal', 'Riesling Kremstal'],
+  'Kamptal': ['Kamptal DAC', 'Grüner Veltliner Kamptal', 'Riesling Kamptal'],
+  'Burgenland': ['Neusiedlersee DAC', 'Neusiedlersee-Hügelland DAC', 'Mittelburgenland DAC', 'Blaufränkisch Burgenland'],
+  'Styrie': ['Styria QbA', 'Grüner Veltliner Styrie', 'Sauvignon Blanc Styrie'],
+  'Vienne': ['Vienne QbA', 'Grüner Veltliner Vienne', 'Wiener Neustadt'],
+  'Carnuntum': ['Carnuntum DAC', 'Blaufränkisch Carnuntum'],
+  'Weinviertel': ['Weinviertel DAC', 'Grüner Veltliner Weinviertel'],
+  'Stellenbosch': ['Stellenbosch WO', 'Cabernet Sauvignon Stellenbosch', 'Shiraz Stellenbosch', 'Pinotage Stellenbosch'],
+  'Paarl': ['Paarl WO', 'Cabernet Sauvignon Paarl', 'Pinotage Paarl', 'Chenin Blanc Paarl'],
+  'Swartland': ['Swartland WO', 'Shiraz Swartland', 'Carignan Swartland', 'Chenin Blanc Swartland'],
+  'Constantia': ['Constantia WO', 'Sauvignon Blanc Constantia', 'Shiraz Constantia', 'Muscat Constantia'],
+  'Franschhoek': ['Franschhoek WO', 'Cabernet Sauvignon Franschhoek', 'Shiraz Franschhoek', 'Chenin Blanc Franschhoek'],
+  'Robertson': ['Robertson WO', 'Shiraz Robertson', 'Chenin Blanc Robertson', 'Chardonnay Robertson'],
+  'Walker Bay': ['Walker Bay WO', 'Pinot Noir Walker Bay', 'Sauvignon Blanc Walker Bay', 'Chardonnay Walker Bay'],
+  'Elgin': ['Elgin WO', 'Sauvignon Blanc Elgin', 'Pinot Noir Elgin', 'Chardonnay Elgin'],
+}
+
+// ─── Matching fuzzy avec tolérance élevée ──────────────────────────────────
+/**
+ * Calcule la similarité entre deux strings (0 à 1)
+ * Utilisé pour le fuzzy matching avec tolérance élevée
+ */
+function calculateSimilarity(a: string, b: string): number {
+  const normalA = normalize(a)
+  const normalB = normalize(b)
+
+  if (normalA === normalB) return 1.0
+  if (normalA.length === 0 || normalB.length === 0) return 0
+
+  // Levenshtein distance simplifiée : ratio des caractères qui matchent
+  const maxLen = Math.max(normalA.length, normalB.length)
+  let matches = 0
+
+  for (let i = 0; i < Math.min(normalA.length, normalB.length); i++) {
+    if (normalA[i] === normalB[i]) matches++
+  }
+
+  // Si un string contient l'autre, c'est un très bon match
+  if (normalA.includes(normalB) || normalB.includes(normalA)) {
+    return 0.85
+  }
+
+  return matches / maxLen
+}
+
+/**
+ * Trouve la région qui correspond le mieux à la chaîne donnée
+ * Tolérance élevée: seuil 0.65
+ */
+export function matchRegionToList(detectedRegion: string, country: string): string {
+  if (!detectedRegion || detectedRegion.trim().length === 0) return detectedRegion
+
+  const regions = REGIONS_BY_COUNTRY[country] || []
+  let bestMatch = detectedRegion
+  let bestScore = 0
+
+  for (const region of regions) {
+    const score = calculateSimilarity(detectedRegion, region)
+    if (score > bestScore) {
+      bestScore = score
+      bestMatch = region
+    }
+  }
+
+  // Retourner le match seulement si le score est acceptable (65%+)
+  return bestScore >= 0.65 ? bestMatch : detectedRegion
+}
+
+/**
+ * Trouve l'appellation qui correspond le mieux à la chaîne donnée
+ * Tolérance élevée: seuil 0.65
+ */
+export function matchAppellationToList(detectedAppellation: string, region: string): string {
+  if (!detectedAppellation || detectedAppellation.trim().length === 0) return detectedAppellation
+
+  const appellations = APPELLATIONS_BY_REGION[region] || []
+  let bestMatch = detectedAppellation
+  let bestScore = 0
+
+  for (const appellation of appellations) {
+    const score = calculateSimilarity(detectedAppellation, appellation)
+    if (score > bestScore) {
+      bestScore = score
+      bestMatch = appellation
+    }
+  }
+
+  // Retourner le match seulement si le score est acceptable (65%+)
+  return bestScore >= 0.65 ? bestMatch : detectedAppellation
+}

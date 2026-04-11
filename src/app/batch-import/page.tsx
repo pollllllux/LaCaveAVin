@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Upload, Loader2, CheckCircle2, AlertCircle, RotateCcw, Wine, X, Trash2 } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
-import { processBottleImage, searchWineCatalog, verifyAndCorrectWineName, detectClassement1859 } from '@/lib/wine-service'
+import { processBottleImage, searchWineCatalog, verifyAndCorrectWineName, detectClassement1859, REGIONS_BY_COUNTRY, APPELLATIONS_BY_REGION, matchRegionToList, matchAppellationToList } from '@/lib/wine-service'
 import { loadBatch, addBatchItems, updateBatchItem, uploadBatchImage, removeBatchItem, BatchItem } from '@/hooks/useBatchImport'
 import { fetchUserSettings } from '@/lib/settings-service'
 import ImageCropModal from '@/components/ImageCropModal'
@@ -95,7 +95,15 @@ export default function BatchImportPage() {
 
         // Reconnaissance OCR
         const recognition = await processBottleImage(file)
-        const { domaine, vintage, appellation, region, country, rawText } = recognition
+        let { domaine, vintage, appellation, region, country, rawText } = recognition
+
+        // Apply fuzzy matching to normalize region and appellation
+        if (country && REGIONS_BY_COUNTRY[country]) {
+          region = matchRegionToList(region, country)
+          if (region && APPELLATIONS_BY_REGION[region]) {
+            appellation = matchAppellationToList(appellation, region)
+          }
+        }
 
         // Recherche dans le catalogue
         let finalDomaine = domaine

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Save, Wine as WineIcon, Star, Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
-import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize, verifyAndCorrectWineName, detectClassement1859 } from '@/lib/wine-service'
+import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize, verifyAndCorrectWineName, detectClassement1859, REGIONS_BY_COUNTRY, APPELLATIONS_BY_REGION, matchRegionToList, matchAppellationToList } from '@/lib/wine-service'
 import { capitalize } from '@/lib/format'
 import { fetchUserSettings } from '@/lib/settings-service'
 import ImageCropModal from './ImageCropModal'
@@ -33,292 +33,9 @@ const OTHER_COUNTRIES = [
 
 const ALL_COUNTRIES = [...TOP_WINE_COUNTRIES, ...OTHER_COUNTRIES]
 
-const REGIONS_BY_COUNTRY: Record<string, string[]> = {
-  'France': [
-    'Bordeaux', 'Bourgogne', 'Champagne', 'Alsace', 'Rhône',
-    'Loire', 'Languedoc-Roussillon', 'Provence', 'Beaujolais',
-    'Jura', 'Savoie', 'Sud-Ouest', 'Corse',
-  ],
-  'Italie': [
-    'Toscane', 'Piémont', 'Vénétie', 'Sicile', 'Campanie',
-    'Pouilles', 'Frioul-Vénétie Julienne', 'Lombardie', 'Marches',
-    'Sardaigne', 'Ombrie', 'Émilie-Romagne', 'Calabre', 'Ligurie',
-  ],
-  'Espagne': [
-    'Rioja', 'Ribera del Duero', 'Priorat', 'Penedès', 'Galice',
-    'Jerez', 'Castille-La Manche', 'Navarre', 'Valence',
-    'Aragon', 'Andalousie', 'Catalogne',
-  ],
-  'États-Unis': [
-    'Napa Valley', 'Sonoma', 'Oregon', 'Washington State',
-    'Finger Lakes', 'Willamette Valley', 'Santa Barbara', 'Paso Robles',
-    'Central Coast', 'Sierra Foothills',
-  ],
-  'Argentine': [
-    'Mendoza', 'Salta', 'San Juan', 'Patagonie', 'Río Negro',
-    'Luján de Cuyo', 'Valle de Uco', 'La Rioja',
-  ],
-  'Australie': [
-    'Barossa Valley', 'Coonawarra', 'Margaret River', 'Clare Valley',
-    'Yarra Valley', 'McLaren Vale', 'Hunter Valley', 'Eden Valley',
-    'Mornington Peninsula', 'Rutherglen',
-  ],
-  'Chili': [
-    'Maipo', 'Colchagua', 'Casablanca', 'Elqui', 'Bío-Bío',
-    'Aconcagua', 'Rapel', 'Curicó', 'Limarí', 'San Antonio',
-  ],
-  'Allemagne': [
-    'Mosel', 'Rheingau', 'Rheinhessen', 'Pfalz', 'Baden',
-    'Franken', 'Nahe', 'Württemberg', 'Mittelrhein', 'Ahr',
-  ],
-  'Portugal': [
-    'Douro', 'Vinho Verde', 'Alentejo', 'Dão', 'Lisboa',
-    'Setúbal', 'Algarve', 'Ribatejo', 'Bairrada', 'Madère',
-  ],
-  'Afrique du Sud': [
-    'Stellenbosch', 'Paarl', 'Swartland', 'Constantia',
-    'Franschhoek', 'Robertson', 'Walker Bay', 'Elgin',
-  ],
-  'Nouvelle-Zélande': [
-    'Marlborough', 'Central Otago', "Hawke's Bay",
-    'Martinborough', 'Gisborne', 'Nelson', 'Canterbury',
-  ],
-  'Autriche': [
-    'Wachau', 'Kremstal', 'Kamptal', 'Burgenland',
-    'Styrie', 'Vienne', 'Carnuntum', 'Weinviertel',
-  ],
-  'Grèce': [
-    'Santorin', 'Naoussa', 'Némée', 'Céphalonie',
-    'Crète', 'Macédoine', 'Péloponnèse', 'Égée',
-  ],
-  'Hongrie': [
-    'Tokaj', 'Eger', 'Villány', 'Badacsony', 'Sopron', 'Szekszárd',
-  ],
-  'Roumanie': [
-    'Dealu Mare', 'Cotnari', 'Murfatlar', 'Tîrnave', 'Dobrogea',
-  ],
-  'Géorgie': [
-    'Kakhétie', 'Kartlie', 'Iméréthie', 'Racha-Letchkhoumi',
-  ],
-  'Liban': [
-    'Bekaa', 'Batroun', 'Jezzine',
-  ],
-  'Israël': [
-    'Galilée', 'Shomron', 'Judée', 'Néguev',
-  ],
-  'Maroc': [
-    'Meknès', 'Benslimane', 'Berkane', 'Boulaouane',
-  ],
-  'Tunisie': [
-    'Bizerte', 'Mornag', 'Grombalia', 'Cap Bon',
-  ],
-  'Suisse': [
-    'Valais', 'Vaud', 'Genève', 'Neuchâtel', 'Tessin',
-  ],
-  'Bulgarie': [
-    'Thrace', 'Danube', 'Rose Valley', 'Stara Planina',
-  ],
-  'Croatie': [
-    'Istrie', 'Dalmatie', 'Slavonie', 'Zagreb',
-  ],
-}
+// Regions importées depuis wine-service.ts
 
-const APPELLATIONS_BY_REGION: Record<string, string[]> = {
-  // France – Bordeaux
-  'Bordeaux': [
-    'Pauillac', 'Saint-Estèphe', 'Saint-Julien', 'Margaux',
-    'Pessac-Léognan', 'Pomerol', 'Saint-Émilion', 'Sauternes',
-    'Entre-Deux-Mers', 'Médoc', 'Haut-Médoc', 'Fronsac',
-    'Canon-Fronsac', 'Côtes de Bourg', 'Blaye', 'Graves',
-    'Barsac', 'Listrac-Médoc', 'Moulis-en-Médoc',
-    'Lalande-de-Pomerol', 'Bordeaux Supérieur', 'Bordeaux',
-  ],
-  // France – Bourgogne
-  'Bourgogne': [
-    // Grand Crus
-    'Chablis', 'Chambolle-Musigny', 'Gevrey-Chambertin', 'Pommard',
-    'Meursault', 'Puligny-Montrachet', 'Chassagne-Montrachet',
-    'Nuits-Saint-Georges', 'Vosne-Romanée', 'Beaune', 'Volnay',
-    'Morey-Saint-Denis', 'Vougeot', 'Echezeaux', 'Grands Echezeaux',
-    'Richebourg', 'Romanée-Conti', 'La Romanée', 'La Tâche',
-    // Premiers Crus et Régionaux
-    'Santenay', 'Aloxe-Corton', 'Savigny-lès-Beaune',
-    'Auxey-Duresses', 'Marsannay', 'Saint-Aubin', 'Mercurey',
-    'Givry', 'Montagny', 'Rully', 'Maranges', 'Ladoix',
-    'Pernand-Vergelesses', 'Chorey-lès-Beaune',
-    // Régionaux
-    'Bourgogne', 'Bourgogne Aligoté', 'Bourgogne Passetoutgrains',
-    'Bourgogne Gamay', 'Bourgogne Blanc', 'Bourgogne Rouge',
-    'Crémant de Bourgogne',
-  ],
-  // France – Champagne
-  'Champagne': [
-    'Champagne', 'Côteaux Champenois', 'Rosé des Riceys',
-  ],
-  // France – Alsace
-  'Alsace': [
-    'Alsace', 'Alsace Grand Cru', "Crémant d'Alsace",
-  ],
-  // France – Rhône
-  'Rhône': [
-    'Châteauneuf-du-Pape', 'Hermitage', 'Crozes-Hermitage',
-    'Côte-Rôtie', 'Saint-Joseph', 'Condrieu', 'Gigondas',
-    'Vacqueyras', 'Cornas', 'Tavel', 'Lirac', 'Rasteau',
-    'Cairanne', 'Ventoux', 'Luberon', 'Côtes du Rhône',
-    'Côtes du Rhône Villages', 'Muscat de Beaumes-de-Venise',
-    'Saint-Péray',
-  ],
-  // France – Loire
-  'Loire': [
-    'Muscadet', 'Sancerre', 'Pouilly-Fumé', 'Vouvray',
-    'Bourgueil', 'Chinon', 'Anjou', 'Savennières',
-    'Quarts-de-Chaume', 'Bonnezeaux', 'Touraine', 'Montlouis',
-    'Saint-Nicolas-de-Bourgueil', 'Coteaux du Layon',
-    'Crémant de Loire', 'Muscadet Sèvre-et-Maine',
-    'Pouilly-sur-Loire', 'Reuilly', 'Quincy', 'Menetou-Salon',
-  ],
-  // France – Languedoc-Roussillon
-  'Languedoc-Roussillon': [
-    'Languedoc', 'Minervois', 'Corbières', 'Fitou',
-    'Saint-Chinian', 'Faugères', 'Pic Saint-Loup',
-    'Costières de Nîmes', 'Banyuls', 'Maury', 'Rivesaltes',
-    'Côtes du Roussillon', 'Collioure', 'Limoux',
-    'Terrasses du Larzac', 'Pézenas',
-  ],
-  // France – Provence
-  'Provence': [
-    'Bandol', 'Côtes de Provence', 'Cassis', 'Palette',
-    'Les Baux-de-Provence', "Coteaux d'Aix-en-Provence",
-    'Coteaux Varois en Provence', 'Bellet', 'Pierrevert',
-  ],
-  // France – Beaujolais
-  'Beaujolais': [
-    'Moulin-à-Vent', 'Morgon', 'Fleurie', 'Brouilly',
-    'Juliénas', 'Chiroubles', 'Côte de Brouilly', 'Chénas',
-    'Saint-Amour', 'Régnié', 'Beaujolais Villages', 'Beaujolais',
-  ],
-  // France – Sud-Ouest
-  'Sud-Ouest': [
-    'Cahors', 'Madiran', 'Bergerac', 'Monbazillac', 'Jurançon',
-    'Irouléguy', 'Fronton', 'Gaillac', 'Côtes de Duras',
-    'Pécharmant', 'Montravel', 'Buzet', 'Côtes du Marmandais',
-  ],
-  // France – Jura
-  'Jura': [
-    'Arbois', 'Château-Chalon', "L'Étoile", 'Crémant du Jura',
-    'Côtes du Jura', 'Macvin du Jura',
-  ],
-  // France – Savoie
-  'Savoie': [
-    'Vin de Savoie', 'Roussette de Savoie', 'Crépy', 'Seyssel',
-  ],
-  // France – Corse
-  'Corse': [
-    'Patrimonio', 'Ajaccio', 'Muscat du Cap Corse', 'Vin de Corse',
-  ],
-  // Italie – Toscane
-  'Toscane': [
-    'Chianti', 'Chianti Classico', 'Brunello di Montalcino',
-    'Vino Nobile di Montepulciano', 'Bolgheri', 'Morellino di Scansano',
-    'Vernaccia di San Gimignano', 'Rosso di Montalcino',
-    'Rosso di Montepulciano', 'Maremma Toscana', 'Orcia',
-  ],
-  // Italie – Piémont
-  'Piémont': [
-    'Barolo', 'Barbaresco', "Barbera d'Asti", "Barbera d'Alba",
-    "Dolcetto d'Alba", "Moscato d'Asti", 'Gavi', 'Asti',
-    'Langhe', 'Monferrato', 'Roero', "Brachetto d'Acqui",
-  ],
-  // Italie – Vénétie
-  'Vénétie': [
-    'Amarone della Valpolicella', 'Valpolicella', 'Soave',
-    'Prosecco', 'Bardolino', 'Recioto della Valpolicella',
-    'Lugana', 'Ripasso',
-  ],
-  // Italie – Sicile
-  'Sicile': [
-    "Nero d'Avola", 'Marsala', 'Moscato di Pantelleria',
-    'Etna', 'Cerasuolo di Vittoria',
-  ],
-  // Italie – Campanie
-  'Campanie': [
-    'Taurasi', 'Greco di Tufo', 'Fiano di Avellino', 'Vesuvio',
-  ],
-  // Espagne – Rioja
-  'Rioja': [
-    'Rioja DOCa', 'Rioja Alavesa', 'Rioja Alta', 'Rioja Oriental',
-  ],
-  // Espagne – Ribera del Duero
-  'Ribera del Duero': ['Ribera del Duero DO'],
-  // Espagne – Priorat
-  'Priorat': ['Priorat DOQ', 'Montsant DO'],
-  // Espagne – Jerez
-  'Jerez': [
-    'Fino', 'Manzanilla', 'Amontillado', 'Oloroso',
-    'Pedro Ximénez', 'Palo Cortado', 'Cream Sherry',
-  ],
-  // Espagne – Galice
-  'Galice': ['Rías Baixas', 'Ribeiro', 'Valdeorras', 'Monterrei'],
-  // Espagne – Penedès
-  'Penedès': ['Penedès DO', 'Cava DO'],
-  // États-Unis – Napa Valley
-  'Napa Valley': [
-    'Napa Valley AVA', 'Rutherford', 'Oakville', 'Stags Leap District',
-    'Mount Veeder', 'Howell Mountain', 'Spring Mountain District',
-    'Diamond Mountain District', 'Yountville', 'St. Helena',
-  ],
-  // États-Unis – Sonoma
-  'Sonoma': [
-    'Russian River Valley', 'Sonoma Coast', 'Alexander Valley',
-    'Dry Creek Valley', 'Carneros', 'Chalk Hill',
-  ],
-  // États-Unis – Oregon
-  'Oregon': [
-    'Willamette Valley', 'Rogue Valley', 'Umpqua Valley',
-  ],
-  // Argentine – Mendoza
-  'Mendoza': [
-    'Luján de Cuyo', 'Valle de Uco', 'Maipú', 'Tupungato',
-  ],
-  // Portugal – Douro
-  'Douro': [
-    'Porto', 'Douro DOC', 'Porto Vintage', 'Porto LBV',
-  ],
-  // Portugal – Vinho Verde
-  'Vinho Verde': [
-    'Vinho Verde DOC', 'Alvarinho', 'Loureiro', 'Azal',
-  ],
-  // Portugal – Alentejo
-  'Alentejo': [
-    'Alentejo DOC', 'Vidigueira', 'Borba', 'Redondo', 'Reguengos',
-  ],
-  // Australie – Barossa Valley
-  'Barossa Valley': ['Barossa Valley GI', 'Eden Valley GI'],
-  // Australie – Margaret River
-  'Margaret River': ['Margaret River GI'],
-  // Allemagne – Mosel
-  'Mosel': [
-    'Bernkasteler Doctor', 'Piesporter Goldtröpfchen',
-    'Wehlener Sonnenuhr', 'Scharzhofberg', 'Trittenheimer Apotheke',
-  ],
-  // Allemagne – Rheingau
-  'Rheingau': [
-    'Rüdesheimer Berg Schlossberg', 'Johannisberger Vogelsang',
-    'Hattenheimer Nussbrunnen',
-  ],
-  // Hongrie – Tokaj
-  'Tokaj': [
-    'Tokaji Aszú', 'Tokaji Furmint', 'Tokaji Szamorodni',
-  ],
-  // Autriche – Wachau
-  'Wachau': [
-    'Wachau DAC', 'Grüner Veltliner', 'Riesling Wachau',
-  ],
-  // Grèce – Santorin
-  'Santorin': ['Santorin AOC', 'Assyrtiko de Santorin'],
-  // Grèce – Naoussa
-  'Naoussa': ['Naoussa AOC', 'Xinomavro'],
-}
+// Appellations importées depuis wine-service.ts
 
 // ============================================================
 // COMPOSANT COMBOBOX
@@ -361,7 +78,6 @@ function Combobox({
         value={value}
         placeholder={placeholder}
         onChange={e => { onChange(e.target.value); setOpen(true) }}
-        onFocus={() => value.length >= 3 && setOpen(true)}
       />
       {shouldShowSuggestions && (
         <ul className="absolute z-[600] left-0 right-0 bg-white border border-stone-100 rounded-2xl shadow-2xl max-h-44 overflow-y-auto mt-1 top-full">
@@ -602,6 +318,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
   const [pendingPhotoFile, setPendingPhotoFile] = useState<{ file: File; preview: string } | null>(null)
   const [enableCropping, setEnableCropping] = useState(true)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [userIsTyping, setUserIsTyping] = useState(false)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -617,7 +334,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
 
   // ---- Auto-complétion du champ "Domaine / Cuvée" ----
   useEffect(() => {
-    if (ocrLoading) return
+    if (ocrLoading || !userIsTyping) return
     const timer = setTimeout(async () => {
       if (form.name.length >= 3) {
         const hits = await searchWineCatalog(form.name, supabase)
@@ -629,7 +346,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       }
     }, 300)
     return () => clearTimeout(timer)
-  }, [form.name, ocrLoading])
+  }, [form.name, ocrLoading, userIsTyping])
 
   // ---- Suggestions dynamiques ----
   const countrySuggestions = form.country
@@ -682,8 +399,16 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       try {
         const result = await processBottleImage(file)
         // ... rest of OCR logic (same as handleCropComplete)
-        const { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
+        let { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
         setPhotoFile(compressedFile)
+
+        // Apply fuzzy matching to normalize region and appellation
+        if (country && REGIONS_BY_COUNTRY[country]) {
+          region = matchRegionToList(region, country)
+          if (region && APPELLATIONS_BY_REGION[region]) {
+            appellation = matchAppellationToList(appellation, region)
+          }
+        }
 
         let finalDomaine = domaine
         if (domaine) {
@@ -691,13 +416,11 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
 
           if (hits.length > 0) {
             setSuggestions(hits)
-            setShowSuggestions(true)
           } else {
             finalDomaine = await verifyAndCorrectWineName(domaine, region, appellation, supabase) || domaine
             hits = await searchWineCatalog(finalDomaine, supabase)
             if (hits.length > 0) {
               setSuggestions(hits)
-              setShowSuggestions(true)
             }
           }
         }
@@ -713,6 +436,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           country: country || f.country,
           is_1859_classified: hasClassement,
         }))
+        setSuggestions([])
+        setShowSuggestions(false)
       } catch (error) {
         console.error('Erreur OCR:', error)
       } finally {
@@ -728,8 +453,16 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     setOcrLoading(true)
     try {
       const result = await processBottleImage(croppedFile)
-      const { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
+      let { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
       setPhotoFile(compressedFile)
+
+      // Apply fuzzy matching to normalize region and appellation
+      if (country && REGIONS_BY_COUNTRY[country]) {
+        region = matchRegionToList(region, country)
+        if (region && APPELLATIONS_BY_REGION[region]) {
+          appellation = matchAppellationToList(appellation, region)
+        }
+      }
 
       console.log('🔍 Vérification du domaine dans wine_catalog...')
 
@@ -741,7 +474,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
         if (hits.length > 0) {
           console.log(`✅ Vin trouvé: ${hits[0].winery}`)
           setSuggestions(hits)
-          setShowSuggestions(true)
+          setShowSuggestions(false)
 
           // Remplir le formulaire avec le premier résultat validé
           const selectedWine = hits[0]
@@ -753,6 +486,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
             appellation: !f.appellation ? selectedWine.variety : f.appellation,
             vintage: !f.vintage || f.vintage === new Date().getFullYear() ? vintage || f.vintage : f.vintage,
           }))
+          setSuggestions([])
+          setShowSuggestions(false)
 
           console.log('📝 Formulaire rempli automatiquement')
         } else {
@@ -771,7 +506,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           if (hits.length > 0) {
             console.log(`✅ Vin trouvé après correction: ${hits[0].winery}`)
             setSuggestions(hits)
-            setShowSuggestions(true)
+            setShowSuggestions(false)
 
             const selectedWine = hits[0]
             setForm(f => ({
@@ -782,6 +517,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
               appellation: !f.appellation ? selectedWine.variety : f.appellation,
               vintage: !f.vintage || f.vintage === new Date().getFullYear() ? vintage || f.vintage : f.vintage,
             }))
+            setSuggestions([])
+            setShowSuggestions(false)
 
             console.log('📝 Formulaire rempli avec vin corrigé')
           } else {
@@ -811,14 +548,14 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     } catch (error) {
       console.error('❌ Erreur OCR:', error)
       try {
-        const compressed = await imageCompression(file, {
+        const compressed = await imageCompression(croppedFile, {
           maxSizeMB: 0.18,
           maxWidthOrHeight: 1200,
           useWebWorker: true
         })
         setPhotoFile(compressed)
       } catch {
-        setPhotoFile(file)
+        setPhotoFile(croppedFile)
       }
     } finally {
       setOcrLoading(false)
@@ -951,9 +688,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
                 autoFocus
                 className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-bordeaux/10 focus:bg-white outline-none transition-all"
                 value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onChange={e => { setForm({ ...form, name: e.target.value }); setUserIsTyping(true) }}
+                onBlur={() => { setUserIsTyping(false); setTimeout(() => setShowSuggestions(false), 150) }}
                 placeholder={ocrLoading ? "Analyse en cours..." : "Ex: Château Lynch-Bages"}
               />
               {/* Dropdown auto-complétion */}
