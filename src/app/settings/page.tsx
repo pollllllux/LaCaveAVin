@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [blinkDuration, setBlinkDuration] = useState(DEFAULT_BLINK)
   const [timeoutDuration, setTimeoutDuration] = useState(DEFAULT_TIMEOUT)
   const [displayDensity, setDisplayDensity] = useState<'compact' | 'normal' | 'spacious'>(DEFAULT_DENSITY as any)
+  const [enableLabelCropping, setEnableLabelCropping] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -24,6 +25,7 @@ export default function SettingsPage() {
       setBlinkDuration(settings.blink_duration)
       setTimeoutDuration(settings.timeout_duration)
       setDisplayDensity(settings.display_density)
+      setEnableLabelCropping(settings.enable_label_cropping)
       setIsMounted(true)
     }
     loadSettings()
@@ -35,6 +37,7 @@ export default function SettingsPage() {
       blink_duration: blinkDuration,
       timeout_duration: timeoutDuration,
       display_density: displayDensity,
+      enable_label_cropping: enableLabelCropping,
     })
 
     if (success) {
@@ -43,6 +46,7 @@ export default function SettingsPage() {
         blink_duration: blinkDuration,
         timeout_duration: timeoutDuration,
         display_density: displayDensity,
+        enable_label_cropping: enableLabelCropping,
       })
       router.push('/menu')
     }
@@ -146,6 +150,40 @@ export default function SettingsPage() {
                   {density === 'compact' ? '📦' : density === 'normal' ? '📄' : '📖'} {density === 'compact' ? 'Compact' : density === 'normal' ? 'Normal' : 'Spacieux'}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* 4. Cropping des étiquettes */}
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-100 space-y-4">
+            <div>
+              <label className="text-sm font-bold text-stone-700 block">
+                ✂️ Recadrage des étiquettes
+              </label>
+              <p className="text-xs text-stone-400 mb-3">
+                Permet de recadrer les photos d'étiquettes avant traitement (peut ralentir sur téléphone ancien)
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setEnableLabelCropping(true)}
+                className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                  enableLabelCropping
+                    ? 'bg-bordeaux text-white shadow-md'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                ✓ Activé
+              </button>
+              <button
+                onClick={() => setEnableLabelCropping(false)}
+                className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                  !enableLabelCropping
+                    ? 'bg-bordeaux text-white shadow-md'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                ✕ Désactivé
+              </button>
             </div>
           </div>
         </div>

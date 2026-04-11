@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
 import { processBottleImage, extractDomainFromOCR, extractAppellationFromOCR, extractVintageFromOCR, searchWineCatalog, WineSuggestion, normalize, verifyAndCorrectWineName, detectClassement1859 } from '@/lib/wine-service'
 import { capitalize } from '@/lib/format'
+import { fetchUserSettings } from '@/lib/settings-service'
+import ImageCropModal from './ImageCropModal'
 
 // ============================================================
 // DONNÉES GÉOGRAPHIQUES
@@ -596,10 +598,22 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
   const [saving, setSaving] = useState(false)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [suggestions, setSuggestions] = useState<WineSuggestion[]>([])
+  const [showCropModal, setShowCropModal] = useState(false)
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<{ file: File; preview: string } | null>(null)
+  const [enableCropping, setEnableCropping] = useState(true)
   const [showSuggestions, setShowSuggestions] = useState(false)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
+
+  // Charger les préférences utilisateur
+  useEffect(() => {
+    const loadSettings = async () => {
+      const settings = await fetchUserSettings()
+      setEnableCropping(settings.enable_label_cropping)
+    }
+    loadSettings()
+  }, [])
 
   // ---- Auto-complétion du champ "Domaine / Cuvée" ----
   useEffect(() => {
@@ -657,10 +671,63 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     const file = e.target.files?.[0]
     if (!file) return
     const preview = URL.createObjectURL(file)
+
+    if (enableCropping) {
+      setPendingPhotoFile({ file, preview })
+      setShowCropModal(true)
+    } else {
+      // Skip cropping, go directly to OCR
+      setPhotoPreview(preview)
+      setOcrLoading(true)
+      try {
+        const result = await processBottleImage(file)
+        // ... rest of OCR logic (same as handleCropComplete)
+        const { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
+        setPhotoFile(compressedFile)
+
+        let finalDomaine = domaine
+        if (domaine) {
+          let hits = await searchWineCatalog(domaine, supabase)
+
+          if (hits.length > 0) {
+            setSuggestions(hits)
+            setShowSuggestions(true)
+          } else {
+            finalDomaine = await verifyAndCorrectWineName(domaine, region, appellation, supabase) || domaine
+            hits = await searchWineCatalog(finalDomaine, supabase)
+            if (hits.length > 0) {
+              setSuggestions(hits)
+              setShowSuggestions(true)
+            }
+          }
+        }
+
+        const hasClassement = detectClassement1859(rawText, region, appellation)
+
+        setForm(f => ({
+          ...f,
+          name: finalDomaine || f.name,
+          vintage: vintage || f.vintage,
+          appellation: appellation || f.appellation,
+          region: region || f.region,
+          country: country || f.country,
+          is_1859_classified: hasClassement,
+        }))
+      } catch (error) {
+        console.error('Erreur OCR:', error)
+      } finally {
+        setOcrLoading(false)
+      }
+    }
+  }
+
+  const handleCropComplete = async (croppedFile: File) => {
+    setShowCropModal(false)
+    const preview = URL.createObjectURL(croppedFile)
     setPhotoPreview(preview)
     setOcrLoading(true)
     try {
-      const result = await processBottleImage(file)
+      const result = await processBottleImage(croppedFile)
       const { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
       setPhotoFile(compressedFile)
 
@@ -829,11 +896,11 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
             <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Photo de l'étiquette</label>
 
             {photoPreview ? (
-              <div className="relative rounded-[1.5rem] overflow-hidden border border-stone-100 shadow-sm">
+              <div className="relative rounded-[1.5rem] overflow-auto border border-stone-100 shadow-sm bg-stone-50" style={{ maxHeight: '300px' }}>
                 <img
                   src={photoPreview}
                   alt="Étiquette"
-                  className="w-full h-40 object-cover"
+                  className="w-full h-auto block"
                 />
                 {ocrLoading && (
                   <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2">
@@ -1071,6 +1138,19 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           </button>
         </div>
       </div>
+
+      {/* --- MODAL CROP D'IMAGE --- */}
+      {showCropModal && pendingPhotoFile && (
+        <ImageCropModal
+          imageUrl={pendingPhotoFile.preview}
+          imageFile={pendingPhotoFile.file}
+          onCropComplete={handleCropComplete}
+          onCancel={() => {
+            setShowCropModal(false)
+            setPendingPhotoFile(null)
+          }}
+        />
+      )}
     </div>
   )
 }

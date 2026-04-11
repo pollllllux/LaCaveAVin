@@ -4,12 +4,14 @@ export interface UserSettings {
   blink_duration: number
   timeout_duration: number
   display_density: 'compact' | 'normal' | 'spacious'
+  enable_label_cropping: boolean
 }
 
 const DEFAULTS: UserSettings = {
   blink_duration: 15,
   timeout_duration: 5,
   display_density: 'normal',
+  enable_label_cropping: true,
 }
 
 export async function fetchUserSettings(): Promise<UserSettings> {
@@ -38,6 +40,7 @@ export async function fetchUserSettings(): Promise<UserSettings> {
       blink_duration: data.blink_duration ?? DEFAULTS.blink_duration,
       timeout_duration: data.timeout_duration ?? DEFAULTS.timeout_duration,
       display_density: data.display_density ?? DEFAULTS.display_density,
+      enable_label_cropping: data.enable_label_cropping ?? DEFAULTS.enable_label_cropping,
     }
   } catch (err) {
     console.error('Erreur settings:', err)
@@ -58,6 +61,7 @@ export async function saveUserSettings(settings: UserSettings): Promise<boolean>
           blink_duration: settings.blink_duration,
           timeout_duration: settings.timeout_duration,
           display_density: settings.display_density,
+          enable_label_cropping: settings.enable_label_cropping,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' }
@@ -93,4 +97,5 @@ export function syncSettingsToLocalStorage(settings: UserSettings): void {
   localStorage.setItem('blinkDuration', settings.blink_duration.toString())
   localStorage.setItem('timeoutDuration', settings.timeout_duration.toString())
   localStorage.setItem('displayDensity', settings.display_density)
+  localStorage.setItem('enableLabelCropping', settings.enable_label_cropping.toString())
 }

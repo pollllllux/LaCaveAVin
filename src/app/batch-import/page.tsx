@@ -7,6 +7,8 @@ import { ArrowLeft, Upload, Loader2, CheckCircle2, AlertCircle, RotateCcw, Wine,
 import imageCompression from 'browser-image-compression'
 import { processBottleImage, searchWineCatalog, verifyAndCorrectWineName, detectClassement1859 } from '@/lib/wine-service'
 import { loadBatch, addBatchItems, updateBatchItem, uploadBatchImage, removeBatchItem, BatchItem } from '@/hooks/useBatchImport'
+import { fetchUserSettings } from '@/lib/settings-service'
+import ImageCropModal from '@/components/ImageCropModal'
 
 const ACCEPTED_FORMATS = ['image/jpeg', 'image/png']
 const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png']
@@ -18,6 +20,11 @@ export default function BatchImportPage() {
   const [processing, setProcessing] = useState(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [formatErrors, setFormatErrors] = useState<string[]>([])
+  const [showCropModal, setShowCropModal] = useState(false)
+  const [pendingCropFile, setPendingCropFile] = useState<{ file: File; preview: string } | null>(null)
+  const [filesToProcess, setFilesToProcess] = useState<File[]>([])
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
+  const [enableCropping, setEnableCropping] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -30,6 +37,15 @@ export default function BatchImportPage() {
     const ext = file.name.split('.').pop() || 'inconnu'
     return `Format non supporté: .${ext}`
   }
+
+  // Charger les paramètres utilisateur
+  useEffect(() => {
+    const loadSettings = async () => {
+      const settings = await fetchUserSettings()
+      setEnableCropping(settings.enable_label_cropping)
+    }
+    loadSettings()
+  }, [])
 
   // Charger les batch items au montage
   useEffect(() => {
@@ -136,31 +152,62 @@ export default function BatchImportPage() {
     if (!files || !user) return
 
     setLoading(true)
-    const newItems: Omit<BatchItem, 'id' | 'user_id' | 'created_at'>[] = []
     const invalidFiles: string[] = []
 
-    // Limiter à 50 fichiers
-    const filesToProcess = Array.from(files).slice(0, 50)
+    // Limiter à 50 fichiers et valider le format
+    const validFiles = Array.from(files)
+      .slice(0, 50)
+      .filter((file) => {
+        if (!isValidFormat(file)) {
+          invalidFiles.push(`${file.name}: ${getFileFormatError(file)}`)
+          return false
+        }
+        return true
+      })
 
-    // Valider et upload toutes les images
-    for (const file of filesToProcess) {
-      // Valider le format
-      if (!isValidFormat(file)) {
-        invalidFiles.push(`${file.name}: ${getFileFormatError(file)}`)
-        continue
+    // Afficher les erreurs de format
+    if (invalidFiles.length > 0) {
+      setFormatErrors(invalidFiles)
+    }
+
+    // Démarrer le crop du premier fichier (ou skipper si cropping désactivé)
+    if (validFiles.length > 0) {
+      if (enableCropping) {
+        setFilesToProcess(validFiles)
+        setCurrentFileIndex(0)
+        const preview = URL.createObjectURL(validFiles[0])
+        setPendingCropFile({ file: validFiles[0], preview })
+        setShowCropModal(true)
+      } else {
+        // Skipper le crop et traiter directement
+        await processFilesWithoutCrop(validFiles)
       }
+    }
 
+    setLoading(false)
+
+    // Réinitialiser l'input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  /**
+   * Traite les fichiers sans crop (quand cropping est désactivé)
+   */
+  const processFilesWithoutCrop = async (files: File[]) => {
+    for (const file of files) {
       try {
         // Compresser l'image
         const options = { maxSizeMB: 0.19, maxWidthOrHeight: 1200, useWebWorker: true }
         const compressed = await imageCompression(file, options)
 
         // Upload dans Supabase Storage
-        const imageUrl = await uploadBatchImage(user.id, compressed)
+        const imageUrl = await uploadBatchImage(user!.id, compressed)
 
         if (imageUrl) {
-          newItems.push({
-            status: 'pending',
+          const newItem = {
+            status: 'pending' as const,
             image_url: imageUrl,
             name: null,
             vintage: null,
@@ -170,37 +217,75 @@ export default function BatchImportPage() {
             color: '',
             is_1859: false,
             raw_text: null,
-            error_message: null
-          })
+            error_message: null,
+          }
+
+          const addedItems = await addBatchItems(user!.id, [newItem])
+          setItems((prev) => [...addedItems, ...prev])
         }
       } catch (error) {
-        console.error(`Erreur compression/upload ${file.name}:`, error)
-        const errorMsg = error instanceof Error ? error.message.split('\n')[0] : 'Erreur lors du traitement'
-        invalidFiles.push(`${file.name}: ${errorMsg}`)
+        console.error(`Erreur compression/upload:`, error)
       }
     }
 
-    // Afficher les erreurs de format/traitement
-    if (invalidFiles.length > 0) {
-      setFormatErrors(invalidFiles)
-    }
-
-    // Insérer les items dans la BD
+    // Démarrer l'OCR
+    const newItems = items.filter((i) => i.status === 'pending')
     if (newItems.length > 0) {
-      const addedItems = await addBatchItems(user.id, newItems)
-      setItems(prev => [...addedItems, ...prev])
+      await processQueue(newItems, items)
+    }
+  }
 
-      // Démarrer le traitement immédiatement
-      if (addedItems.length > 0) {
-        await processQueue(addedItems, [...addedItems, ...items])
+  /**
+   * Gère le crop d'une image et traite la suivante
+   */
+  const handleCropComplete = async (croppedFile: File) => {
+    setShowCropModal(false)
+
+    try {
+      // Compresser l'image croppée
+      const options = { maxSizeMB: 0.19, maxWidthOrHeight: 1200, useWebWorker: true }
+      const compressed = await imageCompression(croppedFile, options)
+
+      // Upload dans Supabase Storage
+      const imageUrl = await uploadBatchImage(user!.id, compressed)
+
+      if (imageUrl) {
+        const newItem = {
+          status: 'pending' as const,
+          image_url: imageUrl,
+          name: null,
+          vintage: null,
+          appellation: null,
+          region: null,
+          country: null,
+          color: '',
+          is_1859: false,
+          raw_text: null,
+          error_message: null,
+        }
+
+        const addedItems = await addBatchItems(user!.id, [newItem])
+        setItems((prev) => [...addedItems, ...prev])
       }
+    } catch (error) {
+      console.error(`Erreur compression/upload:`, error)
     }
 
-    setLoading(false)
-
-    // Réinitialiser l'input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    // Traiter le fichier suivant
+    if (currentFileIndex + 1 < filesToProcess.length) {
+      const nextIndex = currentFileIndex + 1
+      setCurrentFileIndex(nextIndex)
+      const preview = URL.createObjectURL(filesToProcess[nextIndex])
+      setPendingCropFile({ file: filesToProcess[nextIndex], preview })
+      setShowCropModal(true)
+    } else {
+      // Tous les fichiers sont traités, démarrer l'OCR
+      setFilesToProcess([])
+      setPendingCropFile(null)
+      const newItems = items.filter((i) => i.status === 'pending')
+      if (newItems.length > 0) {
+        await processQueue(newItems, items)
+      }
     }
   }
 
@@ -446,6 +531,21 @@ export default function BatchImportPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* --- MODAL CROP D'IMAGE --- */}
+      {showCropModal && pendingCropFile && (
+        <ImageCropModal
+          imageUrl={pendingCropFile.preview}
+          imageFile={pendingCropFile.file}
+          onCropComplete={handleCropComplete}
+          onCancel={() => {
+            setShowCropModal(false)
+            setPendingCropFile(null)
+            setFilesToProcess([])
+            setCurrentFileIndex(0)
+          }}
+        />
       )}
     </div>
   )
