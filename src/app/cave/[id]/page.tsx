@@ -673,7 +673,7 @@ async function fetchBottles() {
                         {wine ? (
                           <>
                             <Wine size={16} className={wine.color === 'red' ? 'text-white/90' : 'text-stone-800/80'} />
-                            <span className="text-[7px] font-bold">{wine.vintage}</span>
+                            <span className="text-[7px] font-bold">{wine.vintage || '–'}</span>
                           </>
                         ) : isOccupied ? (
                           <div className="text-stone-600 text-[8px] font-bold">Occupée</div>
@@ -705,7 +705,7 @@ async function fetchBottles() {
           <div className="bg-white rounded-2xl shadow-2xl p-4 max-w-xs animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <div className="text-center space-y-2">
               <h3 className="font-bold text-stone-800">{capitalize(longPressPopover.wine.name)}</h3>
-              <p className="text-sm text-stone-600">{longPressPopover.wine.vintage}</p>
+              <p className="text-sm text-stone-600">{longPressPopover.wine.vintage || 'Sans millésime'}</p>
             </div>
           </div>
         </div>
@@ -715,7 +715,7 @@ async function fetchBottles() {
       {isHoverDevice && hoverPopover && (
         <div className="fixed z-[200] bg-stone-900 text-white rounded-lg px-3 py-2 text-sm pointer-events-none animate-in fade-in duration-150" style={{ top: `${hoverPopover.mouseY - 60}px`, left: `${hoverPopover.mouseX}px`, transform: 'translateX(-50%)' }}>
           <div className="font-bold text-center">{capitalize(hoverPopover.wine.name)}</div>
-          <div className="text-xs text-stone-300 text-center">{hoverPopover.wine.vintage}</div>
+          <div className="text-xs text-stone-300 text-center">{hoverPopover.wine.vintage || '–'}</div>
           <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-stone-900"></div>
         </div>
       )}
@@ -781,7 +781,7 @@ async function fetchBottles() {
               <div className="text-center space-y-2">
                 <h2 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{wine?.name}</h2>
                 <div className="flex justify-center gap-2">
-                  <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 uppercase">{wine?.vintage}</span>
+                  <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 uppercase">{wine?.vintage || 'S/M'}</span>
                   {wine?.is_1859_classified && (
                     <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-bold uppercase flex items-center gap-1">
                       <Star size={10} fill="currentColor" /> Classé 1859
@@ -901,7 +901,7 @@ async function fetchBottles() {
                             {wine ? (
                               <>
                                 <Wine size={12} className={wine.color === 'red' ? 'text-white/90' : 'text-stone-800/80'} />
-                                <span className="text-[6px] font-bold">{wine.vintage}</span>
+                                <span className="text-[6px] font-bold">{wine.vintage || '–'}</span>
                               </>
                             ) : isOccupied ? (
                               <div className="text-stone-600 text-[6px] font-bold">Occ.</div>

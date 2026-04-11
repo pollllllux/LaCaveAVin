@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Upload, Loader2, CheckCircle2, AlertCircle, RotateCcw, Wine } from 'lucide-react'
+import { ArrowLeft, Upload, Loader2, CheckCircle2, AlertCircle, RotateCcw, Wine, X, Trash2 } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
 import { processBottleImage, searchWineCatalog, verifyAndCorrectWineName, detectClassement1859 } from '@/lib/wine-service'
-import { loadBatch, addBatchItems, updateBatchItem, uploadBatchImage, BatchItem } from '@/hooks/useBatchImport'
+import { loadBatch, addBatchItems, updateBatchItem, uploadBatchImage, removeBatchItem, BatchItem } from '@/hooks/useBatchImport'
+
+const ACCEPTED_FORMATS = ['image/jpeg', 'image/png']
+const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png']
 
 export default function BatchImportPage() {
   const [user, setUser] = useState<any>(null)
@@ -14,8 +17,19 @@ export default function BatchImportPage() {
   const [loading, setLoading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [formatErrors, setFormatErrors] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  const isValidFormat = (file: File) => {
+    return ACCEPTED_FORMATS.includes(file.type) ||
+           ACCEPTED_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))
+  }
+
+  const getFileFormatError = (file: File) => {
+    const ext = file.name.split('.').pop() || 'inconnu'
+    return `Format non supporté: .${ext}`
+  }
 
   // Charger les batch items au montage
   useEffect(() => {
@@ -95,9 +109,13 @@ export default function BatchImportPage() {
         }
       } catch (error) {
         console.error(`Erreur traitement item ${item.id}:`, error)
+        let errorMessage = 'Erreur lors du traitement'
+        if (error instanceof Error) {
+          errorMessage = error.message.split('\n')[0].substring(0, 80)
+        }
         const errorItem = await updateBatchItem(item.id, {
           status: 'error',
-          error_message: error instanceof Error ? error.message : 'Erreur inconnue'
+          error_message: errorMessage
         })
 
         if (errorItem) {
@@ -119,12 +137,19 @@ export default function BatchImportPage() {
 
     setLoading(true)
     const newItems: Omit<BatchItem, 'id' | 'user_id' | 'created_at'>[] = []
+    const invalidFiles: string[] = []
 
     // Limiter à 50 fichiers
     const filesToProcess = Array.from(files).slice(0, 50)
 
-    // Upload toutes les images et créer les items
+    // Valider et upload toutes les images
     for (const file of filesToProcess) {
+      // Valider le format
+      if (!isValidFormat(file)) {
+        invalidFiles.push(`${file.name}: ${getFileFormatError(file)}`)
+        continue
+      }
+
       try {
         // Compresser l'image
         const options = { maxSizeMB: 0.19, maxWidthOrHeight: 1200, useWebWorker: true }
@@ -150,7 +175,14 @@ export default function BatchImportPage() {
         }
       } catch (error) {
         console.error(`Erreur compression/upload ${file.name}:`, error)
+        const errorMsg = error instanceof Error ? error.message.split('\n')[0] : 'Erreur lors du traitement'
+        invalidFiles.push(`${file.name}: ${errorMsg}`)
       }
+    }
+
+    // Afficher les erreurs de format/traitement
+    if (invalidFiles.length > 0) {
+      setFormatErrors(invalidFiles)
     }
 
     // Insérer les items dans la BD
@@ -180,6 +212,16 @@ export default function BatchImportPage() {
     if (updatedItem) {
       setItems(prev => prev.map(i => i.id === item.id ? updatedItem : i))
       await processQueue([updatedItem], items)
+    }
+  }
+
+  /**
+   * Supprime un item du batch
+   */
+  const handleDeleteItem = async (item: BatchItem) => {
+    const success = await removeBatchItem(item.id)
+    if (success) {
+      setItems(prev => prev.filter(i => i.id !== item.id))
     }
   }
 
@@ -225,7 +267,7 @@ export default function BatchImportPage() {
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*"
+            accept={ACCEPTED_FORMATS.join(',')}
             onChange={(e) => handleFileSelect(e.target.files)}
             className="hidden"
             disabled={loading || processing}
@@ -236,7 +278,7 @@ export default function BatchImportPage() {
               <p className="font-bold text-stone-700">Cliquez pour ajouter des photos</p>
               <p className="text-sm text-stone-500">ou glissez-les ici</p>
             </div>
-            <p className="text-[10px] text-stone-400 uppercase font-bold">Max 50 fichiers • JPG, PNG...</p>
+            <p className="text-[10px] text-stone-400 uppercase font-bold">Max 50 fichiers • JPG, PNG</p>
           </div>
         </div>
 
@@ -323,14 +365,23 @@ export default function BatchImportPage() {
                         </div>
                       )}
                       {item.status === 'error' && (
-                        <div className="flex flex-col items-center gap-1">
+                        <div className="flex flex-col items-center gap-2">
                           <AlertCircle className="text-red-500" size={20} />
-                          <button
-                            onClick={() => handleRetry(item)}
-                            className="text-[9px] text-red-500 font-bold uppercase hover:underline"
-                          >
-                            Relancer
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleRetry(item)}
+                              className="text-[9px] text-red-500 font-bold uppercase hover:underline"
+                            >
+                              Relancer
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item)}
+                              className="text-[9px] text-red-500 font-bold uppercase hover:underline"
+                              title="Supprimer cette bouteille"
+                            >
+                              Suppr.
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -363,6 +414,39 @@ export default function BatchImportPage() {
           </div>
         )}
       </div>
+
+      {/* --- MODAL ERREURS FORMAT --- */}
+      {formatErrors.length > 0 && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[500] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Fichiers non traités</h2>
+              <p className="text-[10px] text-stone-400 uppercase font-bold">Formats non supportés</p>
+            </div>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {formatErrors.map((error, idx) => (
+                <div key={idx} className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-1">
+                  <p className="text-sm font-medium text-stone-800">{error.split(':')[0]}</p>
+                  <p className="text-xs text-red-600">{error.split(':').slice(1).join(':').trim()}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-stone-50 rounded-xl p-4 space-y-1">
+              <p className="text-xs font-bold text-stone-600 uppercase">Formats acceptés</p>
+              <p className="text-sm text-stone-700">JPG • PNG</p>
+            </div>
+
+            <button
+              onClick={() => setFormatErrors([])}
+              className="w-full py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 hover:bg-stone-800 active:scale-95 transition-all"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

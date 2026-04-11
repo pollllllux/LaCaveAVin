@@ -574,7 +574,7 @@ function mapAppellation(region: string, dbAppellation: string | undefined | null
 export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
   const [form, setForm] = useState({
     name: initialData?.name ?? '',
-    vintage: initialData?.vintage ?? new Date().getFullYear(),
+    vintage: initialData?.vintage ?? null,
     color: initialData?.color ?? 'red',
     country: initialData?.country ?? 'France',
     region: initialData?.region ?? '',
@@ -930,8 +930,9 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
                 <input
                   type="number"
                   className="w-full p-4 bg-stone-50 rounded-2xl border-none outline-none"
-                  value={form.vintage}
-                  onChange={e => setForm({ ...form, vintage: parseInt(e.target.value) })}
+                  placeholder="Optionnel"
+                  value={form.vintage ?? ''}
+                  onChange={e => setForm({ ...form, vintage: e.target.value ? parseInt(e.target.value) : null })}
                 />
               </div>
               <div className="space-y-1">
