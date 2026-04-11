@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut } from 'lucide-react'
+import { Plus, Wine, LayoutGrid, Trash2, Loader2, LogOut, Camera } from 'lucide-react'
 import { useDisplayDensity } from '@/hooks/useDisplayDensity'
 import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 
@@ -195,6 +195,13 @@ export default function HomePage() {
             <p className="text-stone-400 text-xs uppercase font-bold tracking-widest mt-1">Gestion de Stock</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/batch-import')}
+              className="p-4 rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 active:scale-90 transition-all border border-amber-200"
+              title="Import en lot"
+            >
+              <Camera size={20} />
+            </button>
             <button
               onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
               className="p-4 rounded-2xl bg-stone-100 text-stone-400 hover:text-red-400 hover:bg-red-50 active:scale-90 transition-all"

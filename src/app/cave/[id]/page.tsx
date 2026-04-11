@@ -6,12 +6,13 @@ import { supabase } from '@/lib/supabase'
 import {
   ArrowLeft, Plus, Wine, Loader2, Trash2,
   Layers, X, LayoutGrid, ChevronRight,
-  LogOut, BookOpen, Star, Calendar, Pencil
+  LogOut, BookOpen, Star, Calendar, Pencil, Camera
 } from 'lucide-react'
 import WineForm from '@/components/WineForm'
 import ConsumeModal from '@/components/ConsumeModal'
 import { capitalize } from '@/lib/format'
 import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
+import { loadBatch, removeBatchItem, updateBatchItem, BatchItem } from '@/hooks/useBatchImport'
 
 export default function CellarDetailPage() {
   const { id } = useParams()
@@ -47,6 +48,14 @@ export default function CellarDetailPage() {
   const [highlightBottles, setHighlightBottles] = useState<string[]>([])
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // -- Batch import states --
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([])
+  const [showBatchPanel, setShowBatchPanel] = useState(false)
+  const [activeBatchItem, setActiveBatchItem] = useState<BatchItem | null>(null)
+  const [editingBatchItem, setEditingBatchItem] = useState<BatchItem | null>(null)
+  const [pendingPlacementPos, setPendingPlacementPos] = useState<{x: number, y: number} | null>(null)
+  const [user, setUser] = useState<any>(null)
+
   useEffect(() => {
     // Detect if device supports hover (PC) or not (mobile)
     const hasHover = window.matchMedia('(hover: hover)').matches
@@ -56,6 +65,19 @@ export default function CellarDetailPage() {
     fetchUserSettings().then(settings => {
       syncSettingsToLocalStorage(settings)
     })
+
+    // Charger le user et les batch items
+    const loadBatchItems = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUser(user)
+        const items = await loadBatch(user.id)
+        // Filtrer pour ne garder que les items 'done'
+        const doneItems = items.filter(i => i.status === 'done')
+        setBatchItems(doneItems)
+      }
+    }
+    loadBatchItems()
   }, [])
 
   // Formulaire pour nouveau casier (Spec 8)
@@ -353,6 +375,77 @@ async function fetchBottles() {
     await fetchBottles()
   }
 
+  const doPlaceBatchItem = async (batchItem: BatchItem, x: number, y: number) => {
+    if (!batchItem.color) {
+      setEditingBatchItem(batchItem)
+      setPendingPlacementPos({x, y})
+      return
+    }
+
+    const currentUnit = cellar?.storage_units?.[activeUnitIndex]
+    if (!currentUnit) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      alert("Tu dois etre connecte pour placer une bouteille.")
+      return
+    }
+
+    // 1. Create wine record from batch item
+    const wineData = {
+      name: batchItem.name,
+      vintage: batchItem.vintage,
+      appellation: batchItem.appellation,
+      region: batchItem.region,
+      country: batchItem.country,
+      color: batchItem.color,
+      is_1859_classified: batchItem.is_1859,
+      image_url: batchItem.image_url
+    }
+
+    const { data: wine, error: wineErr } = await supabase
+      .from('wines')
+      .insert([{ ...wineData, user_id: user.id }])
+      .select()
+      .single()
+
+    if (wineErr) {
+      console.error("Erreur creation vin depuis batch:", wineErr.message)
+      alert("Erreur lors de la creation du vin.")
+      return
+    }
+
+    // 2. Create bottle
+    const { error: bottleErr } = await supabase.from('bottles').insert([{
+      wine_id: wine.id,
+      storage_unit_id: currentUnit.id,
+      pos_x: x,
+      pos_y: y,
+      status: 'in_stock'
+    }])
+
+    if (bottleErr) {
+      console.error("Erreur creation bouteille depuis batch:", bottleErr.message)
+      alert("Erreur lors du placement de la bouteille.")
+      return
+    }
+
+    // 3. Remove from batch items
+    const success = await removeBatchItem(batchItem.id)
+    if (success) {
+      setBatchItems(prev => prev.filter(i => i.id !== batchItem.id))
+      setActiveBatchItem(null)
+    }
+
+    // 4. Refresh grid
+    await fetchBottles()
+  }
+
+  const handlePlaceBatchItem = async (x: number, y: number) => {
+    if (!activeBatchItem) return
+    await doPlaceBatchItem(activeBatchItem, x, y)
+  }
+
   const handleLongPressStart = (wine: any, x: number, y: number) => {
     if (!wine) return
     longPressTimerRef.current = setTimeout(() => {
@@ -390,6 +483,9 @@ async function fetchBottles() {
             </button>
             <button onClick={() => router.push('/bouteilles')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-stone-400">
               <BookOpen size={18} /> Mes Bouteilles
+            </button>
+            <button onClick={() => router.push('/batch-import')} className="flex items-center gap-4 w-full p-4 hover:bg-stone-800 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-stone-400">
+              <Camera size={18} /> Import en lot
             </button>
             <div className="pt-8 border-t border-stone-800 mt-4">
               <button onClick={() => router.push('/')} className="flex items-center gap-4 w-full p-4 text-stone-400 hover:text-white transition-colors text-xs font-bold uppercase">
@@ -475,14 +571,35 @@ async function fetchBottles() {
               >
                 <ArrowLeft size={12} /> Mes Caves
               </button>
-              <div className="flex items-center gap-2 text-bordeaux">
-                <div className="w-2 h-2 rounded-full bg-bordeaux animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Live Edit</span>
+              <div className="flex items-center gap-4">
+                {batchItems.length > 0 && (
+                  <button
+                    onClick={() => setShowBatchPanel(true)}
+                    className="flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-amber-200 hover:bg-amber-100 transition-colors"
+                  >
+                    <Camera size={12} />
+                    {batchItems.length} imports en attente
+                  </button>
+                )}
+                <div className="w-2 h-2 rounded-full bg-bordeaux animate-pulse flex-shrink-0"></div>
               </div>
             </div>
 
+            {/* Alert: Batch item en placement */}
+            {activeBatchItem && (
+              <div className="bg-bordeaux/10 border-2 border-bordeaux rounded-[2.5rem] p-4 flex items-center gap-3 animate-pulse">
+                <div className="w-3 h-3 rounded-full bg-bordeaux"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-bordeaux">
+                    Placer {activeBatchItem.name}
+                  </p>
+                  <p className="text-[10px] text-bordeaux/70">Cliquez sur un emplacement vide</p>
+                </div>
+              </div>
+            )}
+
             {/* Alert: Bottles awaiting placement */}
-            {bottlesAwaitingPlacement.length > 0 && (
+            {bottlesAwaitingPlacement.length > 0 && !activeBatchItem && (
               <div className="bg-blue-50 border-2 border-blue-300 rounded-[2.5rem] p-4 flex items-center gap-3 animate-pulse">
                 <div className="w-3 h-3 rounded-full bg-blue-400"></div>
                 <div className="flex-1">
@@ -529,6 +646,8 @@ async function fetchBottles() {
                         handleLongPressEnd()
                         if (bottle) {
                           setViewingBottle(bottle)
+                        } else if (activeBatchItem) {
+                          handlePlaceBatchItem(x, y)
                         } else if (hasAwaitingBottles) {
                           handlePlaceAwaitingBottle(x, y)
                         } else {
@@ -850,6 +969,128 @@ async function fetchBottles() {
           onSave={handleUpdateWine}
           onCancel={() => setEditingBottle(null)}
         />
+      )}
+
+      {/* --- PANEL BATCH ITEMS --- */}
+      {showBatchPanel && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative animate-in zoom-in-95 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Lots scannés</h2>
+              <button
+                onClick={() => setShowBatchPanel(false)}
+                className="text-stone-300 hover:text-stone-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {batchItems.length === 0 ? (
+                <p className="text-center text-stone-400 italic py-6">Aucun import en attente</p>
+              ) : (
+                batchItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveBatchItem(item)
+                      setShowBatchPanel(false)
+                    }}
+                    className="w-full bg-stone-50 rounded-2xl p-4 border-2 border-stone-100 hover:border-bordeaux hover:bg-bordeaux/5 transition-all active:scale-95 flex items-center gap-3"
+                  >
+                    {item.image_url && (
+                      <img
+                        src={item.image_url}
+                        alt={item.name || 'Vin'}
+                        className="w-12 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 text-left space-y-1">
+                      <p className="font-bold text-stone-800 text-sm">{item.name || 'Non reconnu'}</p>
+                      <p className="text-[10px] text-stone-500">
+                        {item.vintage && `${item.vintage}`}
+                        {item.vintage && item.region && ' • '}
+                        {item.region}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold uppercase text-stone-400">
+                          {item.color === 'red' ? '🔴 Rouge' : item.color === 'white' ? '⚪ Blanc' : item.color === 'rose' ? '🌸 Rosé' : '❓ Couleur'}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL ÉDITION BATCH ITEM --- */}
+      {editingBatchItem && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95">
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-serif font-bold text-stone-800 italic">Compléter les infos</h2>
+              <p className="text-[10px] text-stone-400 uppercase font-bold">{editingBatchItem.name}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Couleur du vin</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['red', 'white', 'rose'].map((colorOption) => (
+                    <button
+                      key={colorOption}
+                      onClick={() => setEditingBatchItem({ ...editingBatchItem, color: colorOption as any })}
+                      className={`py-3 rounded-2xl font-bold text-sm uppercase transition-all ${
+                        editingBatchItem.color === colorOption
+                          ? colorOption === 'red'
+                            ? 'bg-red-600 text-white'
+                            : colorOption === 'white'
+                            ? 'bg-amber-300 text-stone-800'
+                            : 'bg-rose-400 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {colorOption === 'red' ? '🔴' : colorOption === 'white' ? '⚪' : '🌸'}
+                      {colorOption === 'red' ? ' Rouge' : colorOption === 'white' ? ' Blanc' : ' Rosé'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditingBatchItem(null)}
+                className="flex-1 py-4 text-stone-400 font-bold rounded-2xl hover:text-stone-600 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={async () => {
+                  // Mettre à jour batch item
+                  const updated = await updateBatchItem(editingBatchItem.id, { color: editingBatchItem.color })
+                  if (updated) {
+                    setBatchItems(prev => prev.map(i => i.id === editingBatchItem.id ? updated : i))
+                    setEditingBatchItem(null)
+
+                    // Placer la bouteille avec le batch item mis à jour
+                    if (pendingPlacementPos) {
+                      await doPlaceBatchItem(updated, pendingPlacementPos.x, pendingPlacementPos.y)
+                      setPendingPlacementPos(null)
+                    }
+                  }
+                }}
+                disabled={!editingBatchItem.color}
+                className="flex-1 py-4 bg-bordeaux text-white rounded-2xl font-bold shadow-lg shadow-bordeaux/20 hover:bg-stone-800 active:scale-95 transition-all disabled:opacity-60"
+              >
+                Continuer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
