@@ -6,6 +6,7 @@ export interface BatchItem {
   status: 'pending' | 'done' | 'error'
   image_url: string | null
   name: string | null
+  cuvee: string | null
   vintage: number | null
   appellation: string | null
   region: string | null
@@ -83,13 +84,20 @@ export async function updateBatchItem(
 }
 
 /**
- * Supprime un item du batch
+ * Supprime un item du batch (seulement ses propres items via RLS)
  */
 export async function removeBatchItem(id: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    console.error('Non authentifié')
+    return false
+  }
+
   const { error } = await supabase
     .from('batch_items')
     .delete()
     .eq('id', id)
+    .eq('user_id', user.id)
 
   if (error) {
     console.error('Erreur suppression batch item:', error.message)

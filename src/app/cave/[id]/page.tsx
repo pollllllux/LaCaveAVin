@@ -13,6 +13,7 @@ import ConsumeModal from '@/components/ConsumeModal'
 import { capitalize } from '@/lib/format'
 import { fetchUserSettings, syncSettingsToLocalStorage } from '@/lib/settings-service'
 import { loadBatch, removeBatchItem, updateBatchItem, BatchItem } from '@/hooks/useBatchImport'
+import { matchAppellationToList, APPELLATIONS_BY_REGION } from '@/lib/wine-service'
 
 export default function CellarDetailPage() {
   const { id } = useParams()
@@ -235,6 +236,13 @@ async function fetchBottles() {
     // Extract quantity before inserting to DB (it's not a column in wines table)
     const { quantity: _, ...wineData } = wineFields
 
+    // Normaliser l'appellation avec la liste connue si la région existe
+    if (wineData.appellation && wineData.region && APPELLATIONS_BY_REGION[wineData.region]) {
+      wineData.appellation = matchAppellationToList(wineData.appellation, wineData.region)
+    }
+
+    console.log('💾 Données du vin à sauvegarder:', wineData)
+
     // 1. Create wine record (Table WINES - Spec 14/19)
     const { data: wine, error: wineErr } = await supabase
       .from('wines')
@@ -395,6 +403,7 @@ async function fetchBottles() {
     const currentYear = new Date().getFullYear()
     const wineData = {
       name: batchItem.name,
+      cuvee: batchItem.cuvee,
       vintage: batchItem.vintage,
       appellation: batchItem.appellation,
       region: batchItem.region,
@@ -786,6 +795,9 @@ async function fetchBottles() {
 
               <div className="text-center space-y-2">
                 <h2 className="text-2xl font-serif font-bold text-stone-800 italic leading-tight">{wine?.name}</h2>
+                {wine?.cuvee && wine.cuvee !== wine.name && (
+                  <p className="text-sm text-stone-600 italic">{wine.cuvee}</p>
+                )}
                 <div className="flex justify-center gap-2">
                   <span className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 uppercase">{wine?.vintage || 'S/M'}</span>
                   {wine?.is_1859_classified && (

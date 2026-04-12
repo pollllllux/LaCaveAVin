@@ -96,7 +96,7 @@ export default function BatchImportPage() {
 
         // Reconnaissance OCR
         const recognition = await processBottleImage(file)
-        let { domaine, vintage, appellation, region, country, rawText } = recognition
+        let { domaine, cuvee, vintage, appellation, region, country, rawText } = recognition
 
         // Apply fuzzy matching to normalize region and appellation
         if (country && REGIONS_BY_COUNTRY[country]) {
@@ -108,10 +108,13 @@ export default function BatchImportPage() {
 
         // Recherche dans le catalogue
         let finalDomaine = domaine
+        let finalCuvee = cuvee
         let hits = await searchWineCatalog(domaine, supabase)
 
         if (hits.length === 0) {
-          finalDomaine = await verifyAndCorrectWineName(domaine, region, appellation, supabase) || domaine
+          const corrected = await verifyAndCorrectWineName(domaine, cuvee, appellation, country, supabase)
+          finalDomaine = corrected.domaine || domaine
+          finalCuvee = corrected.cuvee || cuvee
           hits = await searchWineCatalog(finalDomaine, supabase)
         }
 
@@ -124,6 +127,7 @@ export default function BatchImportPage() {
         const updatedItem = await updateBatchItem(item.id, {
           status: 'done',
           name: finalDomaine,
+          cuvee: finalCuvee,
           vintage: vintage || null,
           appellation: appellation || '',
           region: region || '',
@@ -225,11 +229,12 @@ export default function BatchImportPage() {
             status: 'pending' as const,
             image_url: imageUrl,
             name: null,
+            cuvee: null,
             vintage: null,
             appellation: null,
             region: null,
             country: null,
-            color: '',
+            color: '' as const,
             is_1859: false,
             peak_date_start: null,
             peak_date_end: null,
@@ -272,11 +277,12 @@ export default function BatchImportPage() {
           status: 'pending' as const,
           image_url: imageUrl,
           name: null,
+          cuvee: null,
           vintage: null,
           appellation: null,
           region: null,
           country: null,
-          color: '',
+          color: '' as const,
           is_1859: false,
           peak_date_start: null,
           peak_date_end: null,
@@ -429,8 +435,16 @@ export default function BatchImportPage() {
                         type="text"
                         value={item.name || ''}
                         onChange={(e) => handleEditField(item.id, 'name', e.target.value)}
-                        placeholder="Nom du domaine..."
+                        placeholder="Domaine..."
                         className="w-full font-bold text-stone-800 bg-transparent outline-none border-b border-transparent hover:border-stone-300 focus:border-bordeaux transition-colors"
+                        disabled={item.status === 'pending'}
+                      />
+                      <input
+                        type="text"
+                        value={item.cuvee || ''}
+                        onChange={(e) => handleEditField(item.id, 'cuvee', e.target.value)}
+                        placeholder="Cuvée..."
+                        className="w-full text-sm text-stone-600 bg-transparent outline-none border-b border-transparent hover:border-stone-300 focus:border-bordeaux transition-colors"
                         disabled={item.status === 'pending'}
                       />
                       <div className="flex gap-3 text-[10px] text-stone-500 uppercase font-bold">
@@ -459,15 +473,29 @@ export default function BatchImportPage() {
                     {/* Badge statut */}
                     <div className="flex flex-col items-center">
                       {item.status === 'pending' && (
-                        <div className="flex flex-col items-center gap-1">
+                        <div className="flex flex-col items-center gap-2">
                           <Loader2 className="animate-spin text-blue-500" size={20} />
                           <span className="text-[9px] text-blue-500 font-bold uppercase">En attente</span>
+                          <button
+                            onClick={() => handleDeleteItem(item)}
+                            className="text-[9px] text-stone-400 font-bold uppercase hover:text-red-500 transition-colors"
+                            title="Supprimer cette bouteille"
+                          >
+                            Suppr.
+                          </button>
                         </div>
                       )}
                       {item.status === 'done' && item.name && (
-                        <div className="flex flex-col items-center gap-1">
+                        <div className="flex flex-col items-center gap-2">
                           <CheckCircle2 className="text-green-600" size={20} />
                           <span className="text-[9px] text-green-600 font-bold uppercase">Prêt</span>
+                          <button
+                            onClick={() => handleDeleteItem(item)}
+                            className="text-[9px] text-stone-400 font-bold uppercase hover:text-red-500 transition-colors"
+                            title="Supprimer cette bouteille"
+                          >
+                            Suppr.
+                          </button>
                         </div>
                       )}
                       {item.status === 'error' && (

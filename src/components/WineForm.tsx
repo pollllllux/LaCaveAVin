@@ -288,6 +288,7 @@ function mapAppellation(region: string, dbAppellation: string | undefined | null
 export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
   const [form, setForm] = useState({
     name: initialData?.name ?? '',
+    cuvee: initialData?.cuvee ?? '',
     vintage: initialData?.vintage ?? null,
     color: initialData?.color ?? 'red',
     country: initialData?.country ?? 'France',
@@ -396,7 +397,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       try {
         const result = await processBottleImage(file)
         // ... rest of OCR logic (same as handleCropComplete)
-        let { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
+        let { text, rawText, compressedFile, domaine, cuvee, vintage, appellation, region, country } = result
         setPhotoFile(compressedFile)
 
         // Apply fuzzy matching to normalize region and appellation
@@ -414,7 +415,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           if (hits.length > 0) {
             setSuggestions(hits)
           } else {
-            finalDomaine = await verifyAndCorrectWineName(domaine, region, appellation, supabase) || domaine
+            const corrected = await verifyAndCorrectWineName(domaine, domaine, appellation, country, supabase)
+            finalDomaine = corrected?.domaine || domaine
             hits = await searchWineCatalog(finalDomaine, supabase)
             if (hits.length > 0) {
               setSuggestions(hits)
@@ -427,6 +429,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
         setForm(f => ({
           ...f,
           name: finalDomaine || f.name,
+          cuvee: cuvee || f.cuvee,
           vintage: vintage || f.vintage,
           appellation: appellation || f.appellation,
           region: region || f.region,
@@ -450,7 +453,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
     setOcrLoading(true)
     try {
       const result = await processBottleImage(croppedFile)
-      let { text, rawText, compressedFile, domaine, vintage, appellation, region, country } = result
+      let { text, rawText, compressedFile, domaine, cuvee, vintage, appellation, region, country } = result
       setPhotoFile(compressedFile)
 
       // Apply fuzzy matching to normalize region and appellation
@@ -478,6 +481,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           setForm(f => ({
             ...f,
             name: !f.name ? selectedWine.winery : f.name,
+            cuvee: !f.cuvee ? cuvee : f.cuvee,
             country: !f.country ? selectedWine.country : f.country,
             region: !f.region ? selectedWine.region_1 : f.region,
             appellation: !f.appellation ? selectedWine.variety : f.appellation,
@@ -492,7 +496,8 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
           console.log('🔄 Vérification et correction via Claude Vision...')
 
           // Fallback: vérifier et corriger le nom via Claude Vision
-          finalDomaine = await verifyAndCorrectWineName(domaine, appellation, country, supabase)
+          const corrected = await verifyAndCorrectWineName(domaine, domaine, appellation, country, supabase)
+          finalDomaine = corrected?.domaine || domaine
 
           // Essayer une nouvelle recherche avec le nom corrigé
           if (finalDomaine !== domaine) {
@@ -509,6 +514,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
             setForm(f => ({
               ...f,
               name: !f.name ? selectedWine.winery : f.name,
+              cuvee: !f.cuvee ? cuvee : f.cuvee,
               country: !f.country ? selectedWine.country : f.country,
               region: !f.region ? selectedWine.region_1 : f.region,
               appellation: !f.appellation ? selectedWine.variety : f.appellation,
@@ -527,6 +533,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
             setForm(f => ({
               ...f,
               name: !f.name ? finalDomaine : f.name,
+              cuvee: !f.cuvee ? cuvee : f.cuvee,
               country: !f.country ? country : f.country,
               region: !f.region ? region : f.region,
               appellation: !f.appellation ? appellation : f.appellation,
@@ -601,6 +608,7 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
       ...form,
       image_url,
       name: capitalize(form.name),
+      cuvee: capitalize(form.cuvee),
       country: capitalize(form.country),
       region: capitalize(form.region),
       appellation: capitalize(form.appellation),
@@ -676,52 +684,66 @@ export default function WineForm({ x, y, onSave, onCancel, initialData }: any) {
 
           {/* Section 1 : Identité */}
           <div className="space-y-4">
-            <div className="space-y-1 relative">
-              <label className="text-[10px] font-bold text-stone-400 uppercase ml-3 flex items-center gap-2">
-                Domaine / Cuvée
-                {ocrLoading && <Loader2 size={10} className="animate-spin text-bordeaux" />}
-              </label>
-              <input
-                autoFocus
-                className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-bordeaux/10 focus:bg-white outline-none transition-all"
-                value={form.name}
-                onChange={e => { setForm({ ...form, name: e.target.value }); setUserIsTyping(true) }}
-                onBlur={() => { setUserIsTyping(false); setTimeout(() => setShowSuggestions(false), 150) }}
-                placeholder={ocrLoading ? "Analyse en cours..." : "Ex: Château Lynch-Bages"}
-              />
-              {/* Dropdown auto-complétion */}
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white rounded-2xl shadow-lg border border-stone-100 overflow-hidden top-full">
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => {
-                        const country = mapCountry(s.country)
-                        const region = mapRegion(country, s.province)
-                        const appellation = mapAppellation(region, s.region_1)
-                        setForm(f => ({
-                          ...f,
-                          name: capitalize(s.winery),
-                          country,
-                          region,
-                          appellation,
-                          grapes: s.variety || f.grapes,
-                        }))
-                        setSuggestions([])
-                        setShowSuggestions(false)
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-stone-50 transition-colors border-b border-stone-50 last:border-0 active:bg-stone-100"
-                    >
-                      <p className="font-semibold text-sm text-stone-800 truncate">{s.winery}</p>
-                      <p className="text-[10px] text-stone-400 truncate">
-                        {[s.region_1, s.province, s.country].filter(Boolean).join(' · ')}
-                        {s.variety ? ` — ${s.variety}` : ''}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="grid grid-cols-1 gap-4">
+              {/* Domaine */}
+              <div className="space-y-1 relative">
+                <label className="text-[10px] font-bold text-stone-400 uppercase ml-3 flex items-center gap-2">
+                  Domaine
+                  {ocrLoading && <Loader2 size={10} className="animate-spin text-bordeaux" />}
+                </label>
+                <input
+                  autoFocus
+                  className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-bordeaux/10 focus:bg-white outline-none transition-all"
+                  value={form.name}
+                  onChange={e => { setForm({ ...form, name: e.target.value }); setUserIsTyping(true) }}
+                  onBlur={() => { setUserIsTyping(false); setTimeout(() => setShowSuggestions(false), 150) }}
+                  placeholder={ocrLoading ? "Analyse en cours..." : "Ex: Château Lynch-Bages"}
+                />
+                {/* Dropdown auto-complétion */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white rounded-2xl shadow-lg border border-stone-100 overflow-hidden top-full">
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          const country = mapCountry(s.country)
+                          const region = mapRegion(country, s.province)
+                          const appellation = mapAppellation(region, s.region_1)
+                          setForm(f => ({
+                            ...f,
+                            name: capitalize(s.winery),
+                            country,
+                            region,
+                            appellation,
+                            grapes: s.variety || f.grapes,
+                          }))
+                          setSuggestions([])
+                          setShowSuggestions(false)
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-stone-50 transition-colors border-b border-stone-50 last:border-0 active:bg-stone-100"
+                      >
+                        <p className="font-semibold text-sm text-stone-800 truncate">{s.winery}</p>
+                        <p className="text-[10px] text-stone-400 truncate">
+                          {[s.region_1, s.province, s.country].filter(Boolean).join(' · ')}
+                          {s.variety ? ` — ${s.variety}` : ''}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Cuvée */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-stone-400 uppercase ml-3">Cuvée</label>
+                <input
+                  className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-bordeaux/10 focus:bg-white outline-none transition-all"
+                  value={form.cuvee}
+                  onChange={e => setForm({ ...form, cuvee: e.target.value })}
+                  placeholder="Ex: Pauillac, Chablis Premier Cru..."
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

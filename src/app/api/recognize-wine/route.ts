@@ -90,14 +90,18 @@ export async function POST(request: NextRequest) {
               {
                 type: 'text',
                 text: `Lis l'étiquette de cette bouteille de vin et extrais:
-1. Nom du domaine/producteur (ex: Château, Domaine, etc.)
-2. Millésime (année)
-3. Appellation/région
-4. Pays
-5. Tout texte mentionnant "grand cru classé", "cru classé", "classé 1855", "classé 1859", ou "premier/deuxième cru" s'il existe
+1. Nom du domaine/producteur (ex: Château, Domaine, etc.) - UNIQUEMENT le nom du producteur
+2. Nom complet de la cuvée (ex: "Chablis Premier Cru Montmains", "Pauillac", "Grand-Puy-Lacost")
+3. Millésime (année)
+4. Appellation/région
+5. Pays
+6. Tout texte mentionnant "grand cru classé", "cru classé", "classé 1855", "classé 1859", ou "premier/deuxième cru" s'il existe
+
+Si la cuvée est identique au domaine, répète le nom du domaine.
 
 Retourne uniquement les informations trouvées, une par ligne, sans formatage:
 DOMAINE: ...
+CUVEE: ...
 VINTAGE: ...
 APPELLATION: ...
 REGION: ...

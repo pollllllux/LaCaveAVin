@@ -6,6 +6,7 @@ export interface RecognitionResult {
   text: string;
   rawText: string;
   domaine: string;
+  cuvee: string;
   vintage: number | null;
   appellation: string;
   region: string;
@@ -15,47 +16,52 @@ export interface RecognitionResult {
 // ─── Vérification et correction du vin via API route ────────────────────
 async function verifyAndCorrectWineName(
   domaine: string,
+  cuvee: string,
   appellation: string,
   country: string,
   supabaseClient?: any
-): Promise<string> {
-  console.log(`🔍 Vérification du nom via Claude Vision...`);
+): Promise<{ domaine: string; cuvee: string }> {
+  console.log(`🔍 Vérification du domaine et cuvée...`);
 
   try {
     const response = await fetch('/api/verify-wine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domaine, appellation, country }),
+      body: JSON.stringify({ domaine, cuvee, appellation, country }),
     });
 
     if (!response.ok) {
-      console.warn('⚠️ Vérification échouée, garder le nom original');
-      return domaine;
+      console.warn('⚠️ Vérification échouée, garder les noms originaux');
+      return { domaine, cuvee };
     }
 
     const data = await response.json();
-    const correctedName = data.correctedName || domaine;
+    const correctedDomaine = data.correctedDomaine || domaine;
+    const correctedCuvee = data.correctedCuvee || cuvee;
 
-    if (correctedName !== domaine) {
-      console.log(`✅ Nom corrigé: ${correctedName}`);
+    if (correctedDomaine !== domaine) {
+      console.log(`✅ Domaine corrigé: ${correctedDomaine}`);
+    }
+    if (correctedCuvee !== cuvee) {
+      console.log(`✅ Cuvée corrigée: ${correctedCuvee}`);
     }
 
     // Insérer dans wine_catalog si confirmé et non-existant
-    if (correctedName !== 'INEXISTANT' && supabaseClient) {
-      console.log(`💾 Vérification si déjà dans wine_catalog: ${correctedName}`);
+    if (correctedDomaine !== 'INEXISTANT' && supabaseClient) {
+      console.log(`💾 Vérification si déjà dans wine_catalog: ${correctedDomaine}`);
 
       try {
         // Vérifier si le vin existe déjà
         const { data: existing } = await supabaseClient
           .from('wine_catalog')
           .select('winery')
-          .ilike('winery', `%${correctedName}%`)
+          .ilike('winery', `%${correctedDomaine}%`)
           .limit(1);
 
         if (!existing || existing.length === 0) {
-          console.log(`➕ Vin absent, insertion dans wine_catalog: ${correctedName}`);
+          console.log(`➕ Vin absent, insertion dans wine_catalog: ${correctedDomaine}`);
           await supabaseClient.from('wine_catalog').insert({
-            winery: correctedName,
+            winery: correctedDomaine,
             country: country,
             region_1: appellation,
             variety: appellation,
@@ -70,10 +76,10 @@ async function verifyAndCorrectWineName(
       }
     }
 
-    return correctedName;
+    return { domaine: correctedDomaine, cuvee: correctedCuvee };
   } catch (error) {
-    console.warn('⚠️ Erreur vérification, garder le nom original:', error);
-    return domaine;
+    console.warn('⚠️ Erreur vérification, garder les noms originaux:', error);
+    return { domaine, cuvee };
   }
 }
 
@@ -107,14 +113,22 @@ async function recognizeWithClaudeVision(imageFile: File): Promise<RecognitionRe
   // Parser la réponse structurée
   const lines = text.split('\n').filter((l: string) => l.trim());
   const parsed: Record<string, string> = {};
+  console.log('🔍 Lignes à parser:', lines);
   for (const line of lines) {
-    const [key, value] = line.split(':').map((s: string) => s.trim());
-    if (key && value) {
-      parsed[key.toLowerCase()] = value;
+    const parts = line.split(':');
+    if (parts.length >= 2) {
+      const key = parts[0].trim().toLowerCase();
+      const value = parts.slice(1).join(':').trim(); // Rejoindre au cas où il y a des ':' dans la valeur
+      if (key && value) {
+        parsed[key] = value;
+        console.log(`  ✓ ${key}: ${value}`);
+      }
     }
   }
 
+  console.log('🔍 Parsed object:', parsed);
   let domaine = parsed.domaine || '';
+  let cuvee = parsed.cuvee || domaine; // Si pas de cuvée, utiliser le domaine
   const vintage = parsed.vintage ? parseInt(parsed.vintage) : null;
   const appellation = parsed.appellation || '';
   const region = parsed.region || '';
@@ -122,6 +136,7 @@ async function recognizeWithClaudeVision(imageFile: File): Promise<RecognitionRe
 
   console.log('📋 Données extraites:');
   console.log(`  🏰 Domaine: ${domaine}`);
+  console.log(`  🍾 Cuvée: ${cuvee}`);
   console.log(`  📅 Millésime: ${vintage}`);
   console.log(`  🍷 Appellation: ${appellation}`);
   console.log(`  📍 Région: ${region}`);
@@ -129,9 +144,10 @@ async function recognizeWithClaudeVision(imageFile: File): Promise<RecognitionRe
 
   // Exporter la fonction pour utilisation en fallback
   return {
-    text: `${domaine}\n${appellation}\n${region}\n${vintage || ''}\n${country}`,
+    text: `${domaine}\n${cuvee}\n${appellation}\n${region}\n${vintage || ''}\n${country}`,
     rawText, // Garder le texte brut original pour détection classement
     domaine,
+    cuvee,
     vintage,
     appellation,
     region,
@@ -205,6 +221,7 @@ export async function processBottleImage(file: File) {
     rawText: recognition.rawText,
     compressedFile,
     domaine: recognition.domaine,
+    cuvee: recognition.cuvee,
     vintage: recognition.vintage,
     appellation: recognition.appellation,
     region: recognition.region,
