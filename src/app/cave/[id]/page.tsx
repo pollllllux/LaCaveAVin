@@ -56,6 +56,64 @@ export default function CellarDetailPage() {
   const [editingBatchItem, setEditingBatchItem] = useState<BatchItem | null>(null)
   const [pendingPlacementPos, setPendingPlacementPos] = useState<{x: number, y: number} | null>(null)
   const [user, setUser] = useState<any>(null)
+  const touchStartXRef = useRef<number | null>(null)
+
+  // Naviguer vers le vin précédent/suivant
+  const navigateBottle = (direction: 'prev' | 'next') => {
+    if (!viewingBottle) return
+    const currentIndex = bottles.findIndex(b => b.id === viewingBottle.id)
+    if (currentIndex === -1) return
+
+    let nextIndex
+    if (direction === 'next') {
+      nextIndex = currentIndex + 1 >= bottles.length ? 0 : currentIndex + 1
+    } else {
+      nextIndex = currentIndex - 1 < 0 ? bottles.length - 1 : currentIndex - 1
+    }
+
+    setViewingBottle(bottles[nextIndex])
+  }
+
+  // Gérer les swipes et touches clavier
+  useEffect(() => {
+    if (!viewingBottle) return
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartXRef.current = e.touches[0].clientX
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchStartXRef.current) return
+      const touchEndX = e.changedTouches[0].clientX
+      const diff = touchStartXRef.current - touchEndX
+
+      // Swipe vers la droite = vin précédent, vers la gauche = suivant
+      if (diff > 50) {
+        navigateBottle('next')
+      } else if (diff < -50) {
+        navigateBottle('prev')
+      }
+      touchStartXRef.current = null
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        navigateBottle('next')
+      } else if (e.key === 'ArrowLeft') {
+        navigateBottle('prev')
+      }
+    }
+
+    document.addEventListener('touchstart', handleTouchStart)
+    document.addEventListener('touchend', handleTouchEnd)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchend', handleTouchEnd)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [viewingBottle, bottles])
 
   useEffect(() => {
     // Detect if device supports hover (PC) or not (mobile)
@@ -828,6 +886,21 @@ async function fetchBottles() {
               </div>
 
               <div className="flex gap-3 flex-col">
+                {/* Navigation entre vins */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => navigateBottle('prev')}
+                    className="flex-1 py-3 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm text-sm"
+                  >
+                    ← Précédent
+                  </button>
+                  <button
+                    onClick={() => navigateBottle('next')}
+                    className="flex-1 py-3 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm text-sm"
+                  >
+                    Suivant →
+                  </button>
+                </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setEditingBottle(viewingBottle)}
