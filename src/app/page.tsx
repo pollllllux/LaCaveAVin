@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Wine, Brain, BarChart3, ArrowRight, Check } from 'lucide-react'
@@ -20,13 +21,10 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-stone-200 z-50">
+      <nav className="fixed top-0 left-0 right-0 bg-white border-b border-stone-200 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-bordeaux rounded-lg text-white">
-              <Wine size={24} />
-            </div>
-            <span className="text-2xl font-serif font-bold text-bordeaux italic">Vintrak</span>
+            <Image src="/vintrakfr.png" alt="Vintrak" width={168} height={84} />
           </div>
           <div className="flex gap-3">
             {user ? (
@@ -187,11 +185,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-bordeaux rounded-lg text-white">
-                  <Wine size={20} />
-                </div>
-                <span className="font-serif font-bold italic text-white">Vintrak</span>
+              <div className="mb-4">
+                <Image src="/vintrakfr.png" alt="Vintrak" width={210} height={105} />
               </div>
               <p className="text-sm">La gestion simple et efficace de vos caves à vin</p>
             </div>
