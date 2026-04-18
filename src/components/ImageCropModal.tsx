@@ -322,6 +322,89 @@ export default function ImageCropModal({ imageUrl, imageFile, onCropComplete, on
     setDraggingCorner(null)
   }
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!imageLoaded) return
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const touch = e.touches[0]
+    const x = touch.clientX - rect.left
+    const y = touch.clientY - rect.top
+    const cornerSize = 24 // Plus grand pour mobile
+
+    const corners = [
+      { key: 'tl', x: cropRect.x, y: cropRect.y },
+      { key: 'tr', x: cropRect.x + cropRect.width, y: cropRect.y },
+      { key: 'bl', x: cropRect.x, y: cropRect.y + cropRect.height },
+      { key: 'br', x: cropRect.x + cropRect.width, y: cropRect.y + cropRect.height },
+    ]
+
+    for (const corner of corners) {
+      if (
+        Math.abs(x - corner.x) < cornerSize &&
+        Math.abs(y - corner.y) < cornerSize
+      ) {
+        setDraggingCorner(corner.key)
+        return
+      }
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!draggingCorner || !imageLoaded) return
+    e.preventDefault()
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const touch = e.touches[0]
+    const x = touch.clientX - rect.left
+    const y = touch.clientY - rect.top
+    const minWidth = 50
+    const minHeight = 50
+    const safetyMargin = 15
+
+    switch (draggingCorner) {
+      case 'tl':
+        setCropRect((prev) => ({
+          ...prev,
+          x: Math.max(safetyMargin, Math.min(x, prev.x + prev.width - minWidth)),
+          y: Math.max(safetyMargin, Math.min(y, prev.y + prev.height - minHeight)),
+          width: Math.max(minWidth, prev.width - (x - prev.x)),
+          height: Math.max(minHeight, prev.height - (y - prev.y)),
+        }))
+        break
+      case 'tr':
+        setCropRect((prev) => ({
+          ...prev,
+          y: Math.max(safetyMargin, Math.min(y, prev.y + prev.height - minHeight)),
+          width: Math.max(minWidth, Math.min(x - prev.x, displayDims.width - prev.x - safetyMargin)),
+          height: Math.max(minHeight, prev.height - (y - prev.y)),
+        }))
+        break
+      case 'bl':
+        setCropRect((prev) => ({
+          ...prev,
+          x: Math.max(safetyMargin, Math.min(x, prev.x + prev.width - minWidth)),
+          width: Math.max(minWidth, prev.width - (x - prev.x)),
+          height: Math.max(minHeight, Math.min(y - prev.y, displayDims.height - prev.y - safetyMargin)),
+        }))
+        break
+      case 'br':
+        setCropRect((prev) => ({
+          ...prev,
+          width: Math.max(minWidth, Math.min(x - prev.x, displayDims.width - prev.x - safetyMargin)),
+          height: Math.max(minHeight, Math.min(y - prev.y, displayDims.height - prev.y - safetyMargin)),
+        }))
+        break
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setDraggingCorner(null)
+  }
+
   const cropAndSave = async () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -388,7 +471,10 @@ export default function ImageCropModal({ imageUrl, imageFile, onCropComplete, on
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className="max-w-full max-h-full cursor-crosshair block"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="max-w-full max-h-full cursor-crosshair block touch-none"
           />
         </div>
 
