@@ -3,28 +3,28 @@ import RootLayoutClient from './layout-client'
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'maCaveAVin - Gestion simple et efficace de vos caves à vin',
+  title: 'Vintrak - Gestion simple et efficace de vos caves à vin',
   description: 'Organisez votre collection de vins avec reconnaissance IA des étiquettes et statistiques intelligentes. Gratuit et minimaliste.',
   keywords: ['vin', 'cave à vin', 'gestion collection', 'IA', 'reconnaissance étiquettes'],
-  authors: [{ name: 'maCaveAVin' }],
+  authors: [{ name: 'Vintrak' }],
   openGraph: {
-    title: 'maCaveAVin - Gestion de caves à vin',
+    title: 'Vintrak - Gestion de caves à vin',
     description: 'Organisez votre collection avec reconnaissance IA et statistiques',
-    url: 'https://la-cave-a-vin.vercel.app',
-    siteName: 'maCaveAVin',
+    url: 'https://vintrak.fr',
+    siteName: 'Vintrak',
     images: [
       {
-        url: 'https://la-cave-a-vin.vercel.app/og-image.png',
+        url: 'https://vintrak.fr/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'maCaveAVin - Gestion de caves à vin'
+        alt: 'Vintrak - Gestion de caves à vin'
       }
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'maCaveAVin',
+    title: 'Vintrak',
     description: 'Gestion simple et efficace de vos caves à vin',
   },
   robots: {

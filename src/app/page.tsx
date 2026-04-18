@@ -26,7 +26,7 @@ export default function LandingPage() {
             <div className="p-2 bg-bordeaux rounded-lg text-white">
               <Wine size={24} />
             </div>
-            <span className="text-2xl font-serif font-bold text-bordeaux italic">maCaveAVin</span>
+            <span className="text-2xl font-serif font-bold text-bordeaux italic">Vintrak</span>
           </div>
           <div className="flex gap-3">
             {user ? (
@@ -135,7 +135,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div className="space-y-6">
               <h2 className="text-4xl font-serif font-bold italic text-stone-900">
-                Pourquoi choisir maCaveAVin?
+                Pourquoi choisir Vintrak?
               </h2>
               <ul className="space-y-4">
                 {[
@@ -191,7 +191,7 @@ export default function LandingPage() {
                 <div className="p-2 bg-bordeaux rounded-lg text-white">
                   <Wine size={20} />
                 </div>
-                <span className="font-serif font-bold italic text-white">maCaveAVin</span>
+                <span className="font-serif font-bold italic text-white">Vintrak</span>
               </div>
               <p className="text-sm">La gestion simple et efficace de vos caves à vin</p>
             </div>
@@ -218,7 +218,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-stone-800 pt-8 text-center text-sm">
-            <p>&copy; 2026 maCaveAVin. Tous droits réservés.</p>
+            <p>&copy; 2026 Vintrak. Tous droits réservés.</p>
           </div>
         </div>
       </footer>

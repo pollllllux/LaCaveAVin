@@ -7,4 +7,4 @@ Disallow: /menu
 Disallow: /settings
 Disallow: /api/
 
-Sitemap: https://la-cave-a-vin.vercel.app/sitemap.xml
+Sitemap: https://vintrak.fr/sitemap.xml
