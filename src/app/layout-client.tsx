@@ -6,6 +6,7 @@ import { Home, Wine, BarChart3, Menu } from 'lucide-react'
 import Link from 'next/link'
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout'
 import InactivityWarning from '@/components/InactivityWarning'
+import BatchImportBadge from '@/components/BatchImportBadge'
 
 export default function RootLayoutClient({
   children,
@@ -28,6 +29,9 @@ export default function RootLayoutClient({
 
       {/* Alerte d'inactivité */}
       {!disableTimeout && <InactivityWarning show={showWarning} onStayConnected={handleStayConnected} />}
+
+      {/* Badge d'import en arrière-plan */}
+      <BatchImportBadge />
 
       {/* Barre de navigation basse - Affichée conditionnellement */}
       {!hideNav && (

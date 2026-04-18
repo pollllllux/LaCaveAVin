@@ -9,6 +9,7 @@ import { processBottleImage, searchWineCatalog, verifyAndCorrectWineName, detect
 import { loadBatch, addBatchItems, updateBatchItem, uploadBatchImage, removeBatchItem, BatchItem } from '@/hooks/useBatchImport'
 import { fetchUserSettings } from '@/lib/settings-service'
 import { getPeakDate } from '@/lib/wine-peak-dates'
+import { useBackgroundBatchImport } from '@/hooks/useBackgroundBatchImport'
 import ImageCropModal from '@/components/ImageCropModal'
 
 const ACCEPTED_FORMATS = ['image/jpeg', 'image/png']
@@ -18,8 +19,6 @@ export default function BatchImportPage() {
   const [user, setUser] = useState<any>(null)
   const [items, setItems] = useState<BatchItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [processing, setProcessing] = useState(false)
-  const [processingId, setProcessingId] = useState<string | null>(null)
   const [formatErrors, setFormatErrors] = useState<string[]>([])
   const [showCropModal, setShowCropModal] = useState(false)
   const [pendingCropFile, setPendingCropFile] = useState<{ file: File; preview: string } | null>(null)
@@ -28,6 +27,7 @@ export default function BatchImportPage() {
   const [enableCropping, setEnableCropping] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const { status: importStatus, startProcessing } = useBackgroundBatchImport(user?.id || null)
 
   const isValidFormat = (file: File) => {
     return ACCEPTED_FORMATS.includes(file.type) ||
@@ -62,107 +62,15 @@ export default function BatchImportPage() {
       const existingItems = await loadBatch(user.id)
       setItems(existingItems)
 
-      // Démarrer le traitement des items pending si nécessaire
+      // Démarrer le traitement des items pending s'il y en a
       const pendingItems = existingItems.filter(i => i.status === 'pending')
       if (pendingItems.length > 0) {
-        processQueue(pendingItems, existingItems)
+        startProcessing()
       }
     }
 
     checkAuth()
-  }, [])
-
-  /**
-   * Traite séquentiellement les items pending
-   */
-  const processQueue = async (pendingItems: BatchItem[], allItems: BatchItem[]) => {
-    setProcessing(true)
-
-    for (const item of pendingItems) {
-      setProcessingId(item.id)
-
-      try {
-        // Récupérer le fichier depuis l'URL de stockage
-        // On va utiliser une approche : faire une requête fetch vers l'URL publique
-        // Mais c'est compliqué, donc on va recréer le flux: télécharger depuis storage
-
-        // Alternative: on stocke le fichier temporairement quand on l'upload
-        // Pour maintenant, on va supposer qu'on a un accès direct au fichier
-
-        // Fetch l'image depuis storage
-        const response = await fetch(item.image_url!)
-        const blob = await response.blob()
-        const file = new File([blob], 'wine-label.jpg', { type: blob.type })
-
-        // Reconnaissance OCR
-        const recognition = await processBottleImage(file)
-        let { domaine, cuvee, vintage, appellation, region, country, rawText } = recognition
-
-        // Apply fuzzy matching to normalize region and appellation
-        if (country && REGIONS_BY_COUNTRY[country]) {
-          region = matchRegionToList(region, country)
-          if (region && APPELLATIONS_BY_REGION[region]) {
-            appellation = matchAppellationToList(appellation, region)
-          }
-        }
-
-        // Recherche dans le catalogue
-        let finalDomaine = domaine
-        let finalCuvee = cuvee
-        let hits = await searchWineCatalog(domaine, supabase)
-
-        if (hits.length === 0) {
-          const corrected = await verifyAndCorrectWineName(domaine, cuvee, appellation, country, supabase)
-          finalDomaine = corrected.domaine || domaine
-          finalCuvee = corrected.cuvee || cuvee
-          hits = await searchWineCatalog(finalDomaine, supabase)
-        }
-
-        const hasClassement = detectClassement1859(rawText, region, appellation)
-
-        // Chercher la date de maturité optimale (utilise 'normal' par défaut)
-        const [peakDateStart, peakDateEnd] = await getPeakDate(country, region, appellation, vintage, supabase, 'normal')
-
-        // Mettre à jour l'item
-        const updatedItem = await updateBatchItem(item.id, {
-          status: 'done',
-          name: finalDomaine,
-          cuvee: finalCuvee,
-          vintage: vintage || null,
-          appellation: appellation || '',
-          region: region || '',
-          country: country || '',
-          is_1859: hasClassement,
-          peak_date_start: peakDateStart,
-          peak_date_end: peakDateEnd,
-          vintage_quality: 'normal',
-          raw_text: rawText
-        })
-
-        if (updatedItem) {
-          setItems(prev => prev.map(i => i.id === item.id ? updatedItem : i))
-        }
-      } catch (error) {
-        console.error(`Erreur traitement item ${item.id}:`, error)
-        let errorMessage = 'Erreur lors du traitement'
-        if (error instanceof Error) {
-          errorMessage = error.message.split('\n')[0].substring(0, 80)
-        }
-        const errorItem = await updateBatchItem(item.id, {
-          status: 'error',
-          error_message: errorMessage
-        })
-
-        if (errorItem) {
-          setItems(prev => prev.map(i => i.id === item.id ? errorItem : i))
-        }
-      }
-
-      setProcessingId(null)
-    }
-
-    setProcessing(false)
-  }
+  }, [startProcessing])
 
   /**
    * Traite les fichiers sélectionnés
@@ -246,11 +154,8 @@ export default function BatchImportPage() {
           const addedItems = await addBatchItems(user!.id, [newItem])
           setItems((prev) => [...addedItems, ...prev])
 
-          // Démarrer l'OCR immédiatement après chaque upload
-          const pendingItems = addedItems.filter((i) => i.status === 'pending')
-          if (pendingItems.length > 0) {
-            await processQueue(pendingItems, [...items, ...addedItems])
-          }
+          // Démarrer l'OCR en arrière-plan
+          startProcessing()
         }
       } catch (error) {
         console.error(`Erreur compression/upload:`, error)
@@ -306,13 +211,10 @@ export default function BatchImportPage() {
       setPendingCropFile({ file: filesToProcess[nextIndex], preview })
       setShowCropModal(true)
     } else {
-      // Tous les fichiers sont traités, démarrer l'OCR
+      // Tous les fichiers sont traités, démarrer l'OCR en arrière-plan
       setFilesToProcess([])
       setPendingCropFile(null)
-      const newItems = items.filter((i) => i.status === 'pending')
-      if (newItems.length > 0) {
-        await processQueue(newItems, items)
-      }
+      startProcessing()
     }
   }
 
@@ -323,7 +225,7 @@ export default function BatchImportPage() {
     const updatedItem = await updateBatchItem(item.id, { status: 'pending', error_message: null })
     if (updatedItem) {
       setItems(prev => prev.map(i => i.id === item.id ? updatedItem : i))
-      await processQueue([updatedItem], items)
+      startProcessing()
     }
   }
 
@@ -382,7 +284,7 @@ export default function BatchImportPage() {
             accept={ACCEPTED_FORMATS.join(',')}
             onChange={(e) => handleFileSelect(e.target.files)}
             className="hidden"
-            disabled={loading || processing}
+            disabled={loading || importStatus.isProcessing}
           />
           <div className="space-y-3">
             <Upload size={48} className="mx-auto text-stone-300" />
