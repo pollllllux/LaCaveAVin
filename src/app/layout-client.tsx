@@ -37,7 +37,7 @@ export default function RootLayoutClient({
       {/* Barre de navigation basse - Affichée conditionnellement */}
       {!hideNav && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-stone-100 px-6 py-3 z-50">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="max-w-6xl mx-auto flex justify-between items-center gap-6">
             <Link href="/app" className="flex-shrink-0">
               <Image src="/vintrakfr.png" alt="Vintrak" width={50} height={25} className="md:hidden" />
               <Image src="/vintrakfr.png" alt="Vintrak" width={80} height={40} className="hidden md:block" />
