@@ -886,21 +886,23 @@ async function fetchBottles() {
               </div>
 
               <div className="flex gap-3 flex-col">
-                {/* Navigation entre vins */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => navigateBottle('prev')}
-                    className="flex-1 py-3 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm text-sm"
-                  >
-                    ← Précédent
-                  </button>
-                  <button
-                    onClick={() => navigateBottle('next')}
-                    className="flex-1 py-3 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm text-sm"
-                  >
-                    Suivant →
-                  </button>
-                </div>
+                {/* Navigation entre vins (PC only - swipe available on mobile) */}
+                {isHoverDevice && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => navigateBottle('prev')}
+                      className="flex-1 py-3 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm text-sm"
+                    >
+                      ← Précédent
+                    </button>
+                    <button
+                      onClick={() => navigateBottle('next')}
+                      className="flex-1 py-3 border-2 border-stone-100 text-stone-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-stone-50 hover:text-stone-600 hover:border-stone-200 transition-all active:scale-95 shadow-sm text-sm"
+                    >
+                      Suivant →
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setEditingBottle(viewingBottle)}
