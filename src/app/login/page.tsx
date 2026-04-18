@@ -1,8 +1,9 @@
 "use client"
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Wine, Mail, Lock, Loader2 } from 'lucide-react'
+import { Mail, Lock, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -70,10 +71,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo & Titre */}
         <div className="text-center space-y-2">
-          <div className="inline-flex p-4 rounded-full bg-bordeaux/10 text-bordeaux mb-2">
-            <Wine size={48} />
-          </div>
-          <h1 className="text-4xl font-serif font-bold text-bordeaux italic">maCaveAVin</h1>
+          <Image src="/vintrakfr.png" alt="Vintrak" width={168} height={84} className="mx-auto" />
           <p className="text-stone-500 text-sm">Gérez votre collection avec élégance</p>
         </div>
 
